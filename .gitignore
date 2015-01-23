@@ -1,1 +1,16 @@
 tmp*
+*.pyc
+savi/add_to_info
+savi/human_exome_prior50
+savi/make_qvt
+savi/pileup2multiallele_vcf
+savi/savi_comp
+savi/savi_conf
+savi/savi_poster
+savi/savi_poster_accum
+savi/savi_poster_merge
+savi/savi_poster_prt
+savi/savi_prior_build
+savi/savi_prior_build_2
+savi/savi_txt2prior
+savi/savi_unif_prior
