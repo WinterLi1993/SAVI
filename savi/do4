@@ -1,0 +1,22 @@
+#!/bin/bash
+#$ -S /bin/sh
+#$ -l mem=2G,time=1::
+#$ -cwd
+
+time1=$( date "+%s" )
+echo '[Directory] do4' $( pwd )
+echo '[Machine]' $( uname -n )
+echo '[Start]' $( date )
+echo '[args]' $*
+
+# if [ -e delete_this ]; then	
+# 	t=$( cat delete_this )
+# 	cmd="rm -rf $t"
+#     	echo $cmd
+#     	echo $cmd | sh
+# fi
+
+time2=$( date "+%s" )
+echo '[deltat]' $(( $time2 - $time1 ))
+echo '[End] do4' $( date )
+

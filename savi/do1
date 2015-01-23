@@ -1,0 +1,145 @@
+#!/bin/bash
+
+echo '[Start] do1'
+
+d1=$( readlink -m $0 )
+d=$( dirname $d1 )
+
+name=pb
+prior=u
+m=5
+t=""
+kt=0
+logs=logs
+jobs=jobs
+log=/dev/null
+declare -a wt
+declare -a inp
+lw=0
+li=0
+res=p
+wait=""
+while [ $# -gt 0 ]; do
+    if [ "$1" == "-pref" ]; then
+	shift; name=$1; shift
+    elif [ "$1" == "-prior" ]; then
+	shift; prior=$( readlink -m $1 ); shift
+    elif [ "$1" == "-m" ]; then
+	shift; m=$1; shift
+    elif [ "$1" == "-tmp" ]; then
+	shift; t=$1; shift
+    elif [ "$1" == "-keeptmp" ]; then
+	shift; kt=1
+    elif [ "$1" == "-res" ]; then
+	shift; res=$( readlink -m $1 ); shift
+    elif [ "$1" == "-logs" ]; then
+	shift; logs=$( readlink -m $1 ); shift
+    elif [ "$1" == "-jobs" ]; then
+	shift; jobs=$( readlink -m $1 ); shift
+    elif [ "$1" == "-log" ]; then
+	shift; jobs=$( readlink -m $1 ); shift
+    elif [ "$1" == "-wait" ]; then
+	shift; wait=$1; shift
+    elif [ "$1" == "-wt" ]; then
+	shift
+	while [ "$1" != "-" ]; do
+	    lw=$((lw+1))
+	    wt[$lw]=$( readlink -m $1 )
+	    shift
+	done
+	shift
+    elif [ "$1" == "-inp" ]; then
+	shift
+	while [ "$1" != "-" ]; do
+	    li=$((li+1))
+	    inp[$li]=$( readlink -m $1 )
+	    shift
+	done
+	shift
+    fi
+done
+
+res=$( readlink -m $res )
+
+echo "*** m:"$m
+
+if [ $li -eq 0 -a -e inp ]; then
+    echo "*** li:"$li
+    for x in inp/*; do
+    	echo "*** x:"$x
+	inp[$li]=$( readlink -m $x )
+	li=$((li+1))
+    done
+fi
+
+if [ $lw -gt 0 -a $lw -ne $li ]; then
+    echo "[buildprior] error: wts/inps mismatch." 1>&2
+    exit 1
+fi
+
+if [ "$t" == "" ]; then
+    t1=$( mktemp -d )
+    t=$( readlink -m $t1 )
+fi
+
+echo "[buildprior]" tmpfolder=$t >>$log
+
+if ! cd $t; then
+    echo "[buildprior] error: cannot cd into working director $t." 1>&2
+    exit 1
+fi
+
+mkdir -p $logs
+mkdir -p $jobs
+mkdir -p inps
+mkdir -p iters
+
+if [ $lw -gt 0 ]; then
+    echo "*** lw:"$lw
+    mkdir -p $t/wts
+    i=1
+    while [ $i -le $lw ]; do
+    	echo "*** i:"$i
+	cmd="ln -s ${wt[$i]} wts/$i"
+	echo $cmd
+	echo $cmd | sh
+	i=$((i+1))
+    done
+fi
+
+i=1
+while [ $i -le $li ]; do	
+    echo "**** i:"$i
+    cmd="ln -s ${inp[$i]} inps/$i"
+    echo $cmd 
+    echo $cmd | sh
+    i=$((i+1))
+done
+
+rm -rf $res
+mkdir -p $res
+
+if [ $kt -eq 0 ]; then
+    echo $t > delete_this
+fi
+
+if [ "$name" == "-" ]; then
+    cmd="$d/do2 $d $name $res $prior $m 1"
+    echo $cmd
+    echo $cmd | sh
+    cmd="$d/do4"
+    echo $cmd
+    echo $cmd | sh
+else
+    if [ "$wait" == "" ]; then
+	qsub -V -N $name.2.1 -e $logs -o $logs $d/do2 $d $name $res $prior $m 1 $logs $jobs > $jobs/$name.2.1.job
+    else
+	qsub -V -N $name.2.1 -hold_jid $wait -e $logs -o $logs $d/do2 $d $name $res $prior $m 1 $logs $jobs > $jobs/$name.2.1.job
+    fi    
+    j=$( cat $jobs/$name.2.1.job | awk '{print $3}' )
+    
+    qsub -V -N $name.4 -hold_jid $j -e $logs -o $logs $d/do4 > $jobs/$name.4.job
+    cat $jobs/$name.4.job
+fi
+
+echo '[End] do1'

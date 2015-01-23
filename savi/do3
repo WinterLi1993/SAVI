@@ -1,0 +1,33 @@
+#!/bin/bash
+#$ -S /bin/sh
+#$ -l mem=2G,time=2::
+#$ -cwd
+
+time1=$( date "+%s" )
+echo
+echo '[Start] do3' $( date )
+echo '[Directory]' $( pwd )
+echo '[Machine]' $( uname -n )
+echo '[args]' $*
+
+d=$1
+res=$2
+i=$3
+j=$4
+
+echo "i: "$i", j: "$j
+
+if [ -e wts ]; then
+	cmd="cat inps/$j | savi_poster -p $res/$i | savi_poster_accum -wt wts/$j > iters/$j"
+    	echo $cmd
+    	echo $cmd | sh
+else
+	cmd="cat inps/$j | savi_poster -p $res/$i | savi_poster_accum > iters/$j"
+    	echo $cmd
+    	echo $cmd | sh
+fi
+
+time2=$( date "+%s" )
+echo '[deltat]' $(( $time2 - $time1 ))
+echo '[End] do3' $( date )
+echo

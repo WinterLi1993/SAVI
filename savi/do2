@@ -1,0 +1,72 @@
+#!/bin/bash
+#$ -S /bin/sh
+#$ -l mem=2G,time=1::
+#$ -cwd
+
+time1=$( date "+%s" )
+echo
+echo '[Start] do2' $( date )
+echo '[Directory]' $( pwd )
+echo '[Machine]' $( uname -n )
+echo '[args]' $*
+
+d=$1
+name=$2
+res=$3
+prior=$4
+m=$5
+i=$6
+logs=$7
+jobs=$8
+
+echo "m: "$m", i: "$i
+
+# in the first case, we're just going to copy the 1st prior
+if [ $i -eq 1 ]; then
+	cmd="cp $prior $res/1"
+    	echo $cmd
+    	echo $cmd | sh
+else
+	cmd="savi_poster_merge iters/* > $res/$i; rm iters/*"
+    	echo $cmd
+    	echo $cmd | sh
+fi
+
+# recursive until i == m
+if [ ! $i -eq $m ]; then
+	l=""
+	for f in inps/*; do
+		j=${f##*/}
+
+		echo "*** j "$j	
+
+		if [ "$name" == "-" ]; then
+			cmd="$d/do3 $d $res $i $j"
+			echo $cmd
+			echo $cmd | sh
+		else
+			jsub -V -N $name.3.$i.$j -e $logs -o $logs $d/do3 $d $res $i $j > $jobs/$name.3.$i.$j.job
+			l=$l","$( cat $jobs/$name.3.$i.$j.job | awk '{print $3}'  )
+		fi
+	done
+
+	if [ "$name" == "-" ]; then
+		cmd="$d/do2 $d $name $res $prior $m $((i+1))"
+		echo $cmd
+		echo $cmd | sh
+	else
+		jsub -V -N $name.2.$((i+1)) -hold_jid $l -e $logs -o $logs $d/do2 $d $name $res $prior $m $((i+1)) $logs $jobs > $jobs/$name.2.$((i+1)).job
+	
+		j2=$( cat $jobs/$name.2.$((i+1)).job | awk '{print $3}' )
+		j4=$( cat $jobs/$name.4.job | awk '{print $3}' )
+		j=$( qstat -j $j4 | grep "jid_predecessor_list (req)" | awk '{print $3}' )
+	
+		qalter -hold_jid $j","$j2 $j4 
+	fi
+fi
+
+
+time2=$( date "+%s" )
+echo '[deltat]' $(( $time2 - $time1 ))
+echo '[End] do2' $( date )
+echo
