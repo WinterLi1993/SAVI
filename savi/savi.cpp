@@ -991,7 +991,41 @@ void sighandle(int sig) {
 int main(int argc, char **argv) 
 { 
 	signal(SIGUSR1, &sighandle);
-	
-	main_savi_conf(argc, argv);	
-  	return 0;
+
+#ifdef mprobs2
+        main_probs2(argc, argv);        
+#endif
+
+#ifdef mposter
+        main_savi_poster(argc, argv);   
+#endif
+
+#ifdef mconf
+        main_savi_conf(argc, argv);     
+#endif
+
+#ifdef mcomp
+        main_savi_comp(argc, argv);     
+#endif
+
+#ifdef mposter_accum
+        main_savi_poster_accum(argc, argv);     
+#endif
+
+#ifdef mposter_merge
+        main_savi_poster_merge(argc, argv);     
+#endif
+
+#ifdef mposter_prt
+        main_savi_poster_prt(argc, argv);       
+#endif
+
+#ifdef munif
+        main_savi_unif_prior(argc, argv);       
+#endif
+
+#ifdef mtxt2prior
+        main_savi_txt2prior(argc, argv);
+#endif
+        return 0;
 }

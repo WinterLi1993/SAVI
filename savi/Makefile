@@ -16,7 +16,7 @@ savi_poster: savi.cpp fasd/dcdflib.cpp fasd/dcdflib.h
 	$(CC) $(CFLAGS) -Dmposter savi.cpp fasd/dcdflib.cpp -o savi_poster
 
 savi_conf: savi.cpp fasd/dcdflib.cpp fasd/dcdflib.h
-	$(CC) $(CFLAGS) savi.cpp fasd/dcdflib.cpp -o savi_conf
+	$(CC) $(CFLAGS) -Dmconf savi.cpp fasd/dcdflib.cpp -o savi_conf
 
 savi_comp: savi.cpp fasd/dcdflib.cpp fasd/dcdflib.h
 	$(CC) $(CFLAGS) -Dmcomp savi.cpp fasd/dcdflib.cpp -o savi_comp
