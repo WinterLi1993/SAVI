@@ -2,7 +2,8 @@
 SAVI - *statistical algorithm for variant identification* - is a program for calling variants in sequencing data written by Vladimir Trifonov with contributions from Oliver Elliott, Jiguang Wang, Alex Penson, and Hossein Khiabanian.
 
 **Introduction**
-Why run SAVI? In a word, SAVI is for finding needles in haystacks. It can boil a very large dataset into a small list of mutations. In bioinformatics, *calling variants* can mean two different things---(1) simply enumerating all differences between some sequence data and a reference; and (2) determining which of those differences are significant and not likely to be error. SAVI does the later, while a program like Samtools mpileup will do the former. In practice, SAVI is a way of sifting through large amounts of data to pull out the significant mutations using a Bayesian probability model. A common use case is identifying deleterious mutations in cancer, given normal and tumor sequence data---an often-encountered problem in bioinformatics. The output of SAVI is a list of candidate genomic alterations each annotated with a probability of how likely it is to be real. 
+
+Why run SAVI? In a word, SAVI is for finding needles in haystacks. It can boil a very large dataset into a small list of mutations. In bioinformatics, *calling variants* can mean two different things: (1) simply enumerating all differences between some sequence data and a reference; and (2) determining which of those differences are significant and not likely to be error. SAVI does the later, while a program like Samtools mpileup will do the former. In practice, SAVI is a way of sifting through large amounts of data to pull out the significant mutations using a Bayesian probability model. A common use case is identifying deleterious mutations in cancer, given normal and tumor sequence data---an often-encountered problem in bioinformatics. The output of SAVI is a list of candidate genomic alterations each annotated with a probability of how likely it is to be real. 
 
 SAVI works with standard bioinformatic file formats. As input, the SAVI pipeline takes a bam files and it produces a vcf file as output. In the output vcf file, the SAVI probabilities are added in the INFO field. 
 
@@ -10,7 +11,7 @@ If you're interested in the mathematical underpinings of SAVI, you can read abou
 
 **Dependencies**
 
-The following programs must be in your PATH:
+The following programs must be in your `PATH`:
 
 - Samtools
 - SnpEff (i.e., which snpEff.jar must return a path)
@@ -93,10 +94,10 @@ Instead, it will merely tell us what it thinks are present---a much longer list 
 
 **Common Problems**
 
-- Are your bams sorted by position? - samtools mpileup requires "position sorted alignment files."
+- Are your bams sorted by position? - Samtools mpileup requires "position sorted alignment files."
 - Did you index your bams to produce bai files? - Samtools won't be able to extract regions of your bam files if they have not been indexed.
 - Are both the tumor and normal bam files mapped to the same reference?
 
 **More Detailed Documentation**
 
-For more detailed documentation, refer to [this page](goo.gl/LM9iMN).
+For more detailed documentation, refer to [this page](http://www.oliverelliott.org/article/bioinformatics/doc_savi/).
