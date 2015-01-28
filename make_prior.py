@@ -5,7 +5,7 @@ import sys
 import re
 import subprocess
 import os
-import pylab
+# import pylab
 
 # homemade:
 from runsys.runsys import whichcmd
@@ -150,24 +150,15 @@ def run_vlad_code(args):
 
 	if ( args.verbose ): print("[END]")
 
-def plot_prior(args, priorfile):
-	"""Plot graph of prior"""
-
-	cmd = "cat " + priorfile + " | " + args.bin + "/savi_poster_prt"
-	priorxy = whichcmd(cmd, args, 1)
-	# print(priorxy)
-	pylab.xlabel('frequency')
-	# pylab.ylabel('counts')
-	pylab.title("Prior for " + args.name )
-	pylab.plot(priorxy.split()[0::2], priorxy.split()[1::2])
-	pylab.savefig(args.outputdir + "/prior.png")
-
-	# pylab.xlabel('x ax')
-	# pylab.ylabel('y ax')
-	# pylab.title('My Plot')
-	# # pylab.plot([1,2,3,4,5,6],[2,4,7,3,0,2],'Dr')
-	# pylab.plot([1,2,3,4,5,6],[2,4,7,3,0,2])
-	# pylab.savefig(args.outputdir + "/mytest.png")
+# def plot_prior(args, priorfile):
+# 	"""Plot graph of prior"""
+# 
+# 	cmd = "cat " + priorfile + " | " + args.bin + "/savi_poster_prt"
+# 	priorxy = whichcmd(cmd, args, 1)
+# 	pylab.xlabel('frequency')
+# 	pylab.title("Prior for " + args.name )
+# 	pylab.plot(priorxy.split()[0::2], priorxy.split()[1::2])
+# 	pylab.savefig(args.outputdir + "/prior.png")
 
 def get_arg():
 	"""Get Arguments"""
