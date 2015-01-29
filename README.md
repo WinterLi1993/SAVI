@@ -13,6 +13,7 @@ If you're interested in the mathematical underpinings of SAVI, you can read abou
 
 The following programs must be in your `PATH`:
 
+- python 
 - Samtools
 - SnpEff (i.e., which snpEff.jar must return a path)
 - [tabix](http://samtools.sourceforge.net/tabix.shtml)
@@ -64,7 +65,7 @@ The most common use case for SAVI is paired normal tumor bam files (mapped to th
 Before we run SAVI, we need to make sure of the following:
 
 - the reference fasta we're providing to SAVI is the same one to which we've mapped our bam files
-- we've indexed the reference fasta with faidx
+- we've indexed the reference fasta with `samtools faidx`
 - we've sorted our bams files via `samtools sort`
 - we've indexed our sorted bam files via `samtools index`
 
