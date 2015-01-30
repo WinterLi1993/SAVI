@@ -61,14 +61,9 @@ $0 --bam normal.bam,tumor.bam --outputdir . --index 1 --ref /my/ref.fasta
 
 Notes:
 
-This scripts assumes that you have a paired normal-tumor dataset which is mapped to human hg19.
-If this is not so, you must change the genome reference as well as the genome partition.
-This scripts also assumes that Samtools, bgzip, tabix are in your PATH.
-Also, this script uses hard-wired paths to VarScan and SnpEff.
-You should change these at the top of this script to reflect their paths on your system.
-
+This scripts assumes that Samtools, bgzip, tabix are in your PATH.
 Your reference should be indexed so a .fai file resides in its directory.
-Your bam files should be indexed so .bai files reside in their directories.
+Your bam files should be sorted and indexed so .bai files reside in their directories.
 
 Steps:
 
@@ -253,14 +248,7 @@ if [[ $stepstr == *1* ]]; then
 	echo "[STEP1] pileup"
 	### mpileup
 	# for mpileup - note the -d flag: "max per-BAM depth to avoid excessive memory usage [250]." The default of 250 is way too low, so we jack it up
-	# for awk - we want only lines where normal has depth, and at least one of the tumor samples has depth
-	# for awk 2 - we want only variants
-	# for perl - varscan has a bug that, if the pileup is 0\t\t , as opposed to 0\t*\t*, VarScan fails to parse it properly
-	# cutoff is min read depth cutoff
-	#samtools mpileup -d 100000 -L 100000 ${regionflag} -f $ref ${input_bams} \
-	#    | awk -v num=${num_bams} -v cutoff=${cutoff} '{true=0; for (i = 1; i <= num-1; i++) {if ($(4+i*3) > cutoff) {true=1}}; if (num==1 && $4>cutoff) {print} else if (num>1 && $4>cutoff && true) {print}}' \
-	#    | awk -v num=${num_bams} '{true=0; for (i = 0; i < num; i++) {if (match($(5+i*3),/[ATGC\+\-atgc]/)) {true=1}}; if (true) {print}}' | perl -ne '{ if ($_ =~ s/\t\t/\t\*\t\*/g) {print} else {print} }' \
-	#    > ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt
+	# awk line - we want only lines where normal has depth > cutoff, and at least one of the tumor samples has depth > cutoff
 	samtools mpileup -d 100000 -L 100000 ${regionflag} -f $ref ${input_bams} \
 	    | awk -v num=${num_bams} -v cutoff=${cutoff} '{true=0; for (i = 1; i <= num-1; i++) {if ($(4+i*3) > cutoff) {true=1}}; if (num==1 && $4>cutoff) {print} else if (num>1 && $4>cutoff && true) {print}}' \
 	    > ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt
@@ -277,7 +265,6 @@ fi
 if [[ $stepstr == *2* ]]; then
 	echo "[STEP2] pileup2vcf"
 	### Oscan
-	# cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/savi/pileup2multiallele_vcf --header | bgzip > ${outputdir}/${SGE_TASK_ID}.vcf.bgz
 	# call everything, variants and non-variants alike
 	cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/savi/pileup2multiallele_vcf --all --header \
              | tee ${outputdir}/${SGE_TASK_ID}.all.vcf | awk '{ if ($0 ~ /^#/ || toupper($4) != toupper($5)) {print}}' | bgzip > ${outputdir}/${SGE_TASK_ID}.vcf.bgz
@@ -339,18 +326,9 @@ if [[ $stepstr == *4* ]]; then
 	     --outputdir ${outputdir}/savi_${SGE_TASK_ID}/out
 
 	if [ $filter -eq 1 ]; then 
-
-		# FIX THIS FOR NON-COMPARISON
-		# vcffilter -f "PD21_L > 0" ${outputdir}/savi_${SGE_TASK_ID}/out/finalsavi.vcf.bgz | sed 's|chrM|chrMT|g' > ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf     
-		# vcffilter -f "PD21_L > 0" ${outputdir}/savi_${SGE_TASK_ID}/out/finalsavi.vcf.bgz > ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf     
 		# make a string for the vcffilter - e.g., if $compsamp is 2:1,3:1,5 then $filterstring will be PD21_L > 0 | PD31_L > 0
 		filterstring=$( echo $compsamp | perl -ne '{chomp($line = $_); @myarr = split(/,/, $line); foreach my $elt (@myarr) {if ($elt =~ s/://) {print "PD".$elt."_L > 0 | "}}}' | sed 's|\| $||' )
 		vcffilter -f "${filterstring}" ${outputdir}/savi_${SGE_TASK_ID}/out/finalsavi.vcf.bgz > ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf 
-
-		# index result (too small? not nec?)
-		# bgzip ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf
-		# mv ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf.gz ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf.bgz
-		# tabix -p vcf ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf.bgz
 	else
 		zcat ${outputdir}/savi_${SGE_TASK_ID}/out/freqsavi.vcf.bgz > ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf     
 		rm ${outputdir}/savi_${SGE_TASK_ID}/out/freqsavi.vcf.bgz ${outputdir}/savi_${SGE_TASK_ID}/out/freqsavi.vcf.bgz.tbi
