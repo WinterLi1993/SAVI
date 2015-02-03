@@ -325,11 +325,20 @@ if [[ $stepstr == *4* ]]; then
 	     --keepfreqfile ${keepfreqfile} \
 	     --outputdir ${outputdir}/savi_${SGE_TASK_ID}/out
 
+	# run_savi.py output files:
+	# freqsavi.vcf.bgz - adds presence frequencies to all present variants 
+	# finalsavi.vcf.bgz - add frequency deltas for sample comparisons to all present variants 
+	# finalfilter.vcf - filter all present mutations for somatic variants
+
 	if [ $filter -eq 1 ]; then 
 		# make a string for the vcffilter - e.g., if $compsamp is 2:1,3:1,5 then $filterstring will be PD21_L > 0 | PD31_L > 0
 		filterstring=$( echo $compsamp | perl -ne '{chomp($line = $_); @myarr = split(/,/, $line); foreach my $elt (@myarr) {if ($elt =~ s/://) {print "PD".$elt."_L > 0 | "}}}' | sed 's|\| $||' )
+		# get somatic variants
 		vcffilter -f "${filterstring}" ${outputdir}/savi_${SGE_TASK_ID}/out/finalsavi.vcf.bgz > ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf 
+		# unzip all present variants
+		zcat ${outputdir}/savi_${SGE_TASK_ID}/out/finalsavi.vcf.bgz > ${outputdir}/savi_${SGE_TASK_ID}/out/finalsavi.vcf
 	else
+		# if unpaired sample
 		zcat ${outputdir}/savi_${SGE_TASK_ID}/out/freqsavi.vcf.bgz > ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf     
 		rm ${outputdir}/savi_${SGE_TASK_ID}/out/freqsavi.vcf.bgz ${outputdir}/savi_${SGE_TASK_ID}/out/freqsavi.vcf.bgz.tbi
 	fi
@@ -349,15 +358,27 @@ if [[ $stepstr == *5* ]]; then
 	echo "[STEP5] annotation"
 	mkdir -p ${outputdir2}
 
-	java -Xmx${java_memory}G -jar $( which snpEff.jar ) -c $( which snpEff.config ) $anngenome -noStats -v -lof  -canon -no-downstream -no-intergenic -no-intron -no-upstream -no-utr ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_0.vcf
+	# annotate all present variants, somatic variants
+	mysuffix="all.vcf"
+	for myfile in ${outputdir}/savi_${SGE_TASK_ID}/out/finalsavi.vcf ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf; do 
+		if [ -e ${myfile} ]; then
+			java -Xmx${java_memory}G -jar $( which snpEff.jar ) -c $( which snpEff.config ) $anngenome -noStats -v -lof  -canon -no-downstream -no-intergenic -no-intron -no-upstream -no-utr ${myfile} > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_0.${mysuffix}
+		fi	
+		mysuffix="vcf"
+	done
 
 	# loop through all annotating vcfs
 	myindex=1
 	for i in $( echo ${annvcf} | sed 's|,| |g' ); do 
-		java -Xmx${java_memory}G -jar $( which SnpSift.jar ) annotate ${i} -v ${outputdir2}/tmp_${SGE_TASK_ID}.eff_$(($myindex - 1)).vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.vcf
-		if [ $debug -eq 0 ]; then 
-			rm ${outputdir2}/tmp_${SGE_TASK_ID}.eff_$(($myindex - 1)).vcf
-		fi
+		# annotate all present variants, somatic variants
+		for mysuffix in all.vcf vcf; do
+			if [ -e ${outputdir2}/tmp_${SGE_TASK_ID}.eff_$(($myindex - 1)).${mysuffix} ]; then
+				java -Xmx${java_memory}G -jar $( which SnpSift.jar ) annotate ${i} -v ${outputdir2}/tmp_${SGE_TASK_ID}.eff_$(($myindex - 1)).${mysuffix} > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.${mysuffix}
+				if [ $debug -eq 0 ]; then
+					rm ${outputdir2}/tmp_${SGE_TASK_ID}.eff_$(($myindex - 1)).${mysuffix}
+				fi
+			fi
+		done
 		myindex=$(($myindex + 1))
 	done
 
@@ -405,6 +426,8 @@ if [ $debug -eq 0 ]; then
 	rm -f ${outputdir3}/${SGE_TASK_ID}.cnv.tmp.txt
 	rm -f ${outputdir3}/${SGE_TASK_ID}.tumor.copynumber
 fi
+# remove this because we already have the zipped version
+rm -f ${outputdir}/savi_${SGE_TASK_ID}/out/finalsavi.vcf
 
 time2=$( date "+%s" )
 echo [deltat] $(( $time2 - $time1 ))
