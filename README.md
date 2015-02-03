@@ -14,8 +14,9 @@ If you're interested in the mathematical underpinings of SAVI, you can read abou
 The following programs must be in your `PATH`:
 
 - python 
+- java 
 - Samtools
-- SnpEff (i.e., which snpEff.jar must return a path)
+- SnpEff (i.e., `which snpEff.jar` must return a path)
 - [tabix](http://samtools.sourceforge.net/tabix.shtml)
 - [bgzip](http://samtools.sourceforge.net/tabix.shtml)
 - [vcflib](https://github.com/ekg/vcflib)
