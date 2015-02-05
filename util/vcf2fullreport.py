@@ -5,9 +5,9 @@
 # preserving all information
 
 # Usage:
-# cat myfile.vcf | vcf2report.py > myfile.txt
+# cat myfile.vcf | vcf2fullreport.py > myfile.txt
 # To suppress lines beginning with "##" (i.e., the vcf header), run:
-# cat myfile.vcf | vcf2report.py 0 > myfile.txt
+# cat myfile.vcf | vcf2fullreport.py 0 > myfile.txt
 
 import sys
 import re
@@ -29,13 +29,14 @@ for line in contents:
 
 	# double # header 
 	if ( line[0:2] == "##" ):
-		# if argument, dont print double # header
+		# if argument, print double # header
 		if (len(sys.argv) == 1): print(line)
 
 		# e.g., double # header might look like this:
 		# ##INFO=<ID=RS,Number=1,Type=Integer,Description="dbSNP ID (i.e. rs number)">
 		# grab INFO subfield ID
 		match = re.search(r'##INFO=<ID=(\w+)(.*)', line)
+
 		# define d_info
 		if match: 
 			d_info[match.group(1)] = "-"
@@ -74,7 +75,7 @@ for line in contents:
 		# reset dict
 		for x in d_info: d_info[x]="-"
 
-		# split line in tab
+		# split line on tab
 		linelist = line.split("\t")
 
 		# print first part of line
