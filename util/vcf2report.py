@@ -9,11 +9,13 @@
 # To suppress lines beginning with "##" (i.e., the vcf header), run:
 # cat myfile.vcf | vcf2report.py 0 > myfile.txt
 
+import argparse
 import sys
 import re
 
 ### Variables
 d_info = {'EFF.EFFECT':'-'}	# dict for entries in INFO field (all keys in the vcf get an entry)
+d_samples = {}			# dict for sample names
 format = []			# list for entries in FORMAT field
 header=[]			# list for entries in header
 isfirst = 1			# boolean isfirst - if true, we print the header once and turn off
@@ -21,6 +23,29 @@ number_samples = 0 		# number of samples in vcf file
 # verboseheader = 1		# boolean verbose header
 num_eff_fields = 14		# number of SnpEff fields delimited by "|"
 emptyefflist = ['-']*num_eff_fields	# define empty eff list 
+
+### Read Args
+prog_description = """This script takes a vcf file as input, piped in, and converts it to a tab-delimited text file, 
+with the aim to make a human readable report
+"""
+
+# http://docs.python.org/2/howto/argparse.html
+parser = argparse.ArgumentParser(description=prog_description)
+parser.add_argument("-v", "--verbose", 		action="store_true",		help="verbose mode. Default: off")
+parser.add_argument("--header", 		action="store_true",		help="print vcf double # header lines. Default: off")
+parser.add_argument("-s", "--samples",						help="comma delimited sample names")
+
+args = parser.parse_args()
+
+# create dict, d_samples, mapping indicies to user-provided sample names 
+if (args.samples):
+	# map indicies to sample names
+	d_samples = {str(k+1) : j for k, j in enumerate(args.samples.split(','))}	
+
+	# did user give more than 9 names? This is not yet supported
+	if len(d_samples) > 9:
+		print("Error: Number of samples greater than 9. The \"--samples\" flag does not support this. As an alternative, use the hack-y util/make_header.py")
+		sys.exit(0)
 
 ### Main
 # read file from stdin
@@ -32,7 +57,7 @@ for line in contents:
 	# double # header 
 	if ( line[0:2] == "##" ):
 		# if argument, print double # header
-		if (len(sys.argv) == 1): print(line)
+		if (args.header): print(line)
 
 		# e.g., double # header might look like this:
 		# ##INFO=<ID=RS,Number=1,Type=Integer,Description="dbSNP ID (i.e. rs number)">
@@ -62,11 +87,16 @@ for line in contents:
 		# get the number of samples (# cols after the FORMAT field)
 		number_samples = len(header) - 7
 
+		# check for error - did user give the correct number of sample names?
+		if args.samples and len(d_samples) != number_samples:
+			print("Error: Number of samples (" + str(number_samples) + ") doesn\'t match number of sample names the user provided (" + str(len(d_samples)) +")")
+			sys.exit(0)
+
 	# the non-empty, non-header lines of the vcf
 	elif ( line ):
-		# if isfirst bool, print the header
+		# if isfirst bool - i.e., if we're on the first non-header line of the vcf - finish printing the header of the report
 		if (isfirst):
-			# get list of elts in format field
+			# get list of elts in FORMAT field
 			# but only subset: filter from
 			# ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] to
 			# ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR']
@@ -80,18 +110,33 @@ for line in contents:
 			
 			# print selective parts of the INFO field
 			for myfield in sorted(d_info): 
-				# match savi fields, which can look like this: PD21_F, P1_F, P2_F, S1_P, S1_PF, S2_P, S2_PF, ...
-				match4 = re.search(r'S(\d+)_(.*)', myfield) or re.search(r'P(\d+)_(.*)', myfield)
+				# match savi fields, which can look like this:
+				# P1_F P1_L P1_U P2_F P2_L P2_U S1_P S1_PF S2_P S2_PF
+				match4 = re.search(r'([PS])(\d)(_[FLUP](F?))', myfield)
+				# or this:
+				# PD21_F PD21_L PD21_U (assume no double digit numbers)
+				match5 = re.search(r'(PD)(\d)(\d)(_[FLU])', myfield)
 
-				if match4 or myfield.startswith('PD') or myfield == 'RS' or myfield == 'dbSNPBuildID' or myfield == 'COSMIC_NSAMP' or myfield == 'STRAND' or myfield == 'AA' or myfield == 'CDS' or myfield == 'NMutPerID' or myfield == 'MEGANORMAL_ID' or myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'SRC':
+				# use sample names if user has provided them
+				if (match4 and args.samples):
+					print(match4.group(1) + d_samples[match4.group(2)] + match4.group(3) + "\t"),
+				# use sample names if user has provided them
+				elif (match5 and args.samples):
+					print(match5.group(1) + d_samples[match5.group(2)] + d_samples[match5.group(3)] + match5.group(4) + "\t"),
+				elif match4 or match5 or myfield == 'RS' or myfield == 'dbSNPBuildID' or myfield == 'COSMIC_NSAMP' or myfield == 'STRAND' or myfield == 'AA' or myfield == 'CDS' or myfield == 'NMutPerID' or myfield == 'MEGANORMAL_ID' or myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'SRC':
 					print(myfield + "\t"),
 				elif myfield.startswith('EFF'):
 					print(myfield.split(".")[1] + "\t"),
 
 			# print FORMAT part of header
 			for i in range(1,1+number_samples): 
-				myjoiner = "_" + str(i) + "\t"
-				print(myjoiner.join(format) + "_" + str(i) + "\t"),
+				# use sample names if user has provided them
+				if (args.samples):
+					myjoiner = "_" + d_samples[str(i)] + "\t"
+					print(myjoiner.join(format) + "_" + d_samples[str(i)] + "\t"),
+				else:
+					myjoiner = "_" + str(i) + "\t"
+					print(myjoiner.join(format) + "_" + str(i) + "\t"),
 
 			print("\n"),
 
