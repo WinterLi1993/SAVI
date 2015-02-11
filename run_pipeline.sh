@@ -11,6 +11,7 @@ filter=1					# bool to do SAVI filter (default: yes)
 stepstr=12345					# what steps to run (default: 1 thro 5)
 software=$( dirname $( readlink -m $0 ) )	# directory where to look for scripts
 input_bams=""					# input bam files
+sample_names=""					# sample names in a comma-delimited list
 num_bams=2					# number of input bams (default: 2)
 compsamp="2:1"					# the indices of sample to compare with savi (default: 2:1 - i.e., tumor vs norm)
 cutoff=5 					# min read depth cutoff
@@ -42,6 +43,7 @@ Options:
 		If you use this flag, you must also specify an index. For example, 
 	        "--partition 50000000 --index 1" would refer to chr1:1-50000000 for hg19
  		(default: not used)
+  --names	sample names in a comma-delimited list (must be in the order of your bams) (default: off)
   --compsamp	comma- colon- delimited indices of samples to compare with savi (default: 2:1) (example: 2:1,3:1,3:2)
   --steps	steps to run (default: 1,2,3,4,5,6 (i.e., all except cnv))
   --memory	the memory for the Java virtual machine in gigabytes (default: 6)
@@ -109,6 +111,10 @@ while [ $# -gt 0 ]; do
 	elif [  "$1" == "-vcf" -o "$1" == "--vcf" ]; then
 		shift; 
 		vcf=$1; 
+		shift
+	elif [  "$1" == "-names" -o "$1" == "--names" ]; then
+		shift; 
+		sample_names=$1; 
 		shift
 	elif [  "$1" == "-compsamp" -o "$1" == "--compsamp" ]; then
 		shift; 
@@ -183,6 +189,7 @@ echo "[output_dir] "$outputdir
 echo "[steps] "$stepstr
 echo "[debug] "$debug
 echo "[bam files] "$input_bams
+echo "[sample names] "$sample_names
 echo "[scripts dir] "$software
 
 # check for bams
@@ -368,14 +375,27 @@ if [[ $stepstr == *5* ]]; then
 	done
 
 	# loop through all annotating vcfs
-	myindex=1
+	myindex=1 						# define index variable for the loop
+	num_vcfs=$( echo ${annvcf} | sed 's|,| |g' | wc -w )	# get the total number of annotating vcfs
 	for i in $( echo ${annvcf} | sed 's|,| |g' ); do 
 		# annotate all present variants, somatic variants
 		for mysuffix in all.vcf vcf; do
 			if [ -e ${outputdir2}/tmp_${SGE_TASK_ID}.eff_$(($myindex - 1)).${mysuffix} ]; then
 				java -Xmx${java_memory}G -jar $( which SnpSift.jar ) annotate ${i} -v ${outputdir2}/tmp_${SGE_TASK_ID}.eff_$(($myindex - 1)).${mysuffix} > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.${mysuffix}
+
+				# if not debug, delete tmp files
 				if [ $debug -eq 0 ]; then
 					rm ${outputdir2}/tmp_${SGE_TASK_ID}.eff_$(($myindex - 1)).${mysuffix}
+				fi
+
+				# if final iteration of loop, convert from vcf to human readable tab-delimited report
+				if [ $myindex -eq $num_vcfs ]; then
+					# if sample names given, use them
+					if [ -z $sample_names ]; then 
+						cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.${mysuffix} | ${software}/util/vcf2report.py > ${outputdir2}/report.${mysuffix}.txt
+					else
+						cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.${mysuffix} | ${software}/util/vcf2report.py --samples $sample_names > ${outputdir2}/report.${mysuffix}.txt
+					fi
 				fi
 			fi
 		done

@@ -6,8 +6,6 @@
 
 # Usage:
 # cat myfile.vcf | vcf2report.py > myfile.txt
-# To suppress lines beginning with "##" (i.e., the vcf header), run:
-# cat myfile.vcf | vcf2report.py 0 > myfile.txt
 
 import argparse
 import sys
@@ -32,7 +30,7 @@ with the aim to make a human readable report
 # http://docs.python.org/2/howto/argparse.html
 parser = argparse.ArgumentParser(description=prog_description)
 parser.add_argument("-v", "--verbose", 		action="store_true",		help="verbose mode. Default: off")
-parser.add_argument("--header", 		action="store_true",		help="print vcf double # header lines. Default: off")
+parser.add_argument("--header", 		action="store_true",		help="print vcf header lines beginning with \"##\". Default: off")
 parser.add_argument("-s", "--samples",						help="comma delimited sample names")
 
 args = parser.parse_args()
