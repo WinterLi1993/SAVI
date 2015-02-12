@@ -12,17 +12,20 @@ import sys
 import re
 
 ### Variables
-d_info = {'EFF.EFFECT':'-'}	# dict for entries in INFO field (all keys in the vcf get an entry)
-d_samples = {}			# dict for sample names
-format = []			# list for entries in FORMAT field
-header=[]			# list for entries in header
-isfirst = 1			# boolean isfirst - if true, we print the header once and turn off
-number_samples = 0 		# number of samples in vcf file
-# verboseheader = 1		# boolean verbose header
-num_eff_fields = 14		# number of SnpEff fields delimited by "|"
+d_info = {'EFF.EFFECT':'-'}		# dict for entries in INFO field (all keys in the vcf get an entry)
+d_samples = {}				# dict for sample names
+format = []				# list for entries in FORMAT field
+header=[]				# list for entries in header
+isfirst = 1				# boolean isfirst - if true, we print the header once and turn off
+number_samples = 0			# number of samples in vcf file
+# verboseheader = 1			# boolean verbose header
+num_eff_fields = 14			# number of SnpEff fields delimited by "|"
 emptyefflist = ['-']*num_eff_fields	# define empty eff list 
 
-### Read Args
+# dict to map vcf, SnpEff terms to human readable terms
+d_readable = {'#CHROM':'#chromosome', 'POS':'position', 'ID':'id', 'REF':'ref', 'ALT':'alt', 'SDP':'totdepth', 'RD':'refdepth', 'AD':'altdepth', 'RBQ':'ref_ave_qual', 'ABQ':'alt_ave_qual', 'RDF':'ref_forward_depth', 'RDR':'ref_reverse_depth', 'ADF':'alt_forward_depth', 'ADR':'alt_reverse_depth', '_P':'_presence_bool', '_PF':'_presence_posterior', '_F':'_freq',  '_L':'_freq_lower', '_U':'_freq_upper', 'COSMIC_NSAMP':'cosmic_number_of_samples', 'MEGANORMAL_ID':'meganormal_id', 'NMutPerID':'number_of_mutations_per_meganormal_id', 'RS':'reference_SNP_id(RS)', 'SOM_VERIFIED_COUNTS':'cbio_somatic_verified_mutation_count', 'SRC':'meganormal_186_TCGA_source', 'TOT_COUNTS':'cbio_total_mutation_count', 'dbSNPBuildID':'dbSNPBuild_for_RS', 'STRAND':'strand'}
+
+### Read Arguments
 prog_description = """This script takes a vcf file as input, piped in, and converts it to a tab-delimited text file, 
 with the aim to make a human readable report
 """
@@ -81,6 +84,8 @@ for line in contents:
 		# but only want subset:
 		# ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'INFO', 'FORMAT', 'sample_1', 'sample_2']
 		header = [v for j, v in enumerate(line.split("\t")) if j not in [5,6]]
+		# make a human readable version:
+		header_readable = [d_readable[j] for j in header[0:5]]
 
 		# get the number of samples (# cols after the FORMAT field)
 		number_samples = len(header) - 7
@@ -99,14 +104,13 @@ for line in contents:
 			# ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] to
 			# ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR']
 			format = [v for j, v in enumerate( line.split("\t")[8].split(":") ) if j not in [0,1,3,6,7]]
+			# make a human readable version:
+			format_readable = [d_readable[j] for j in format]
 
 			# print first part of header, up until but not including INFO field
-			print("\t".join(header[0:5]) + "\t"),
+			print("\t".join(header_readable[0:5]) + "\t"),
 
-			# print INFO part of header -  sorted keys
-			# print("\t".join(sorted(d_info)) + "\t"),
-			
-			# print selective parts of the INFO field
+			# print INFO part of header (selective parts of the INFO field)
 			for myfield in sorted(d_info): 
 				# match savi fields, which can look like this:
 				# P1_F P1_L P1_U P2_F P2_L P2_U S1_P S1_PF S2_P S2_PF
@@ -115,14 +119,28 @@ for line in contents:
 				# PD21_F PD21_L PD21_U (assume no double digit numbers)
 				match5 = re.search(r'(PD)(\d)(\d)(_[FLU])', myfield)
 
-				# use sample names if user has provided them
-				if (match4 and args.samples):
-					print(match4.group(1) + d_samples[match4.group(2)] + match4.group(3) + "\t"),
-				# use sample names if user has provided them
-				elif (match5 and args.samples):
-					print(match5.group(1) + d_samples[match5.group(2)] + d_samples[match5.group(3)] + match5.group(4) + "\t"),
-				elif match4 or match5 or myfield == 'RS' or myfield == 'dbSNPBuildID' or myfield == 'COSMIC_NSAMP' or myfield == 'STRAND' or myfield == 'AA' or myfield == 'CDS' or myfield == 'NMutPerID' or myfield == 'MEGANORMAL_ID' or myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'SRC':
-					print(myfield + "\t"),
+				# make this field human readable
+				if (match4): 
+					# use sample names if user has provided them
+					if (args.samples):
+						print(d_samples[match4.group(2)] + d_readable[match4.group(3)] + "\t"),
+					else:
+						print(match4.group(2) + d_readable[match4.group(3)] + "\t"),
+
+				# make this field human readable
+				elif (match5): 
+					# use sample names if user has provided them
+					if (args.samples):
+						print(d_samples[match5.group(2)] + "-" + d_samples[match5.group(3)] + d_readable[match5.group(4)] + "\t"),
+					else:
+						print(match5.group(2) + "-" + match5.group(3) + d_readable[match5.group(4)] + "\t"),
+
+				elif myfield == 'RS' or myfield == 'dbSNPBuildID' or myfield == 'COSMIC_NSAMP' or myfield == 'STRAND' or myfield == 'AA' or myfield == 'CDS' or myfield == 'NMutPerID' or myfield == 'MEGANORMAL_ID' or myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'SRC':
+					if myfield in d_readable:
+						print(d_readable[myfield] + "\t"),
+					else:
+						print(myfield + "\t"),
+
 				elif myfield.startswith('EFF'):
 					print(myfield.split(".")[1] + "\t"),
 
@@ -131,10 +149,10 @@ for line in contents:
 				# use sample names if user has provided them
 				if (args.samples):
 					myjoiner = "_" + d_samples[str(i)] + "\t"
-					print(myjoiner.join(format) + "_" + d_samples[str(i)] + "\t"),
+					print(myjoiner.join(format_readable) + "_" + d_samples[str(i)] + "\t"),
 				else:
 					myjoiner = "_" + str(i) + "\t"
-					print(myjoiner.join(format) + "_" + str(i) + "\t"),
+					print(myjoiner.join(format_readable) + "_" + str(i) + "\t"),
 
 			print("\n"),
 
