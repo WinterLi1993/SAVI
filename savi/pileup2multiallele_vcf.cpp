@@ -16,25 +16,6 @@
 
 using namespace std;
 
-/*
-Name			Description								Size*		Range*
-char			Character or small integer.						1byte		signed: -128 to 127 unsigned: 0 to 255
-short int 		(short)	Short Integer.							bytes		signed: -32768 to 32767 unsigned: 0 to 65535
-int			Integer.								bytes		signed: -2147483648 to 2147483647 unsigned: 0 to 4294967295
-long int 		(long)	Long integer.							bytes		signed: -2147483648 to 2147483647 unsigned: 0 to 4294967295
-bool			Boolean value. It can take one of two values: true or false.		1byte		true or false
-float			Floating point number.							4bytes		+/- 3.4e +/- 38 (~7 digits)
-double			Double precision floating point number.					8bytes		+/- 1.7e +/- 308 (~15 digits)
-long double		Long double precision floating point number.				8bytes		+/- 1.7e +/- 308 (~15 digits)
-wchar_t			Wide character.								2 or 4 bytes	1 wide character
-*/
-
-/*
-preprocessor directives
-#define #error #import	#undef #elif #if #include #using #else #ifdef #line #endif #ifndef #pragma
-*/
-
-
 // global variables
 bool verbose = false;		// bool verbose
 bool debug = false;		// bool debug
@@ -42,7 +23,7 @@ bool allvar = false;		// bool - if true, print all lines not just variants
 bool bool_pval = false;		// bool - strand bias p val
 int qual_offset = 33; 		// quality offset
 
-// taken verbatim from here:
+// statistical functions taken verbatim from here:
 // http://genome.sph.umich.edu/w/images/d/d8/Bios615-fa12-lec03-handout.pdf
 // http://genome.sph.umich.edu/wiki/Biostatistics_615/815
 /*
@@ -421,8 +402,6 @@ void read_pileup(char *s, string sample_names)
 	bool indelisrev;			// indel is in reverse direction
 	bool isfirstiteration = 1;		// boolean for the first iteration (in which we print the header then turn this off)
 
-	char delim_tab = '	';		// the delimiter for the line
-
 	// header
 	string header = "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT";
 
@@ -438,14 +417,36 @@ void read_pileup(char *s, string sample_names)
 		if (isfirstiteration) cout << header; 
 
 		// split line on tabs and get fields
-		vec_line = split(line, delim_tab);
+		vec_line = split(line, '\t');
 		chr = vec_line[0];
 		pos = vec_line[1];
 		ref = vec_line[2];
 	
+		if (vec_line.size() % 3 == 2)
+		{
+			/*
+			This is a hack! It addresses the following problem.
+			The output of samtools mpileup can look like this:
+			chr1  2275948  G  8  .....,,,  >A>DCDD?  8  ,,,.,.,,   :HJDDIBD  0  *  *
+			chr1  2275949  C  8  GGGGGggg  C>CDCDDA  8  gggGgGgg   :HJDDJBD  0
+			chr1  2275950  T  8  .....,,,  9?9C9DDA  8  ,,,.,.,,   :BJ9DHDD  1  ,  2
+			Note that sometimes pileup uses asterisks, and sometimes it uses nothing, to represent empty fields.
+			However, this trips up the split function, which treats
+			0 \t * \t * \n
+			0 \t \t \n
+			differently, causing problems.
+			Splitting on tab, it says the former has 3 elts, while the latter has 2 elts
+			(python, in contrast, does NOT have this problem - it's split function says 3 for both)
+			To prevent this problem, I add an empty element to the line vector if vector size mod 3 == 2
+			thus making it mod 3 == 0
+			*/
+			vec_line.push_back("");
+			// DEBUG
+			// cout << "DEBUG " << vec_line.size() << " " << vec_line.size() % 3 << endl;
+		}
+
 		// get number of samples
 		number_samples = (vec_line.size() - 3)/3;
-		// cout << number_samples << endl;
 
 		// define string for first part of vcf row, which we'll need later
 		string prependstr = chr + "\t" + pos + "\t" + "." + "\t" + ref;
