@@ -73,7 +73,7 @@ Before we run SAVI, we need to make sure of the following:
 Got it? Good! Here's an example command running SAVI **for chromosome 1**:
 
 ```
-SAVI/run_pipeline.sh --bam normal.bam,tumor.bam --names NORMAL,TUMOR --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --compsamp 2:1 --outputdir outputdir/samplename/chr1 --region chr1 --ann-vcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicVariants_v66_20130725.vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
+SAVI/run_pipeline --bam normal.bam,tumor.bam --names NORMAL,TUMOR --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --compsamp 2:1 --outputdir outputdir/samplename/chr1 --region chr1 --ann-vcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicVariants_v66_20130725.vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
 ```
 
 In practice, we'd want to run SAVI for every chromosome in a loop:
@@ -88,7 +88,7 @@ Another use case is a tumor-only bam file.
 Here's a sample command again **for chromosome 1**:
 
 ```
-SAVI/run_pipeline.sh --bam tumor.bam --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --compsamp 1 --nofilter --outputdir outputdir/samplename/chr1 --region chr1 --ann-vcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicVariants_v66_20130725.vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
+SAVI/run_pipeline --bam tumor.bam --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --compsamp 1 --nofilter --outputdir outputdir/samplename/chr1 --region chr1 --ann-vcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicVariants_v66_20130725.vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
 ```
 
 In this case, SAVI won't be able to call somatic variants.
@@ -102,4 +102,4 @@ Instead, it will merely tell us what it thinks are present---a much longer list 
 
 **More Detailed Documentation**
 
-For more detailed documentation, refer to [this page](http://www.oliverelliott.org/article/bioinformatics/doc_savi/).
+This page has the most up-to-date documentation, but for a more detailed overview [read this](http://www.oliverelliott.org/article/bioinformatics/doc_savi/).
