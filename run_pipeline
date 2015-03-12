@@ -19,6 +19,9 @@ anngenome="GRCh37.71"				# annotating reference for SnpEff (default: hg19)
 annvcf=""					# annotating vcfs in comma-delimited list (default: none)
 						# common hg19 annotating vcfs in comma-delimited list
 savi_precision=0				# the SAVI precision, from the Hossein fix
+						# required programs
+required_programs="java python samtools snpEff.jar bgzip tabix vcffilter"
+required_savi_programs="pileup2multiallele_vcf add_to_info make_qvt savi_poster savi_conf savi_comp savi_poster_accum savi_poster_merge savi_poster_prt savi_unif_prior savi_txt2prior"
 helpmessage=$( cat <<EOF
 Usage:
 
@@ -192,6 +195,20 @@ echo "[bam files] "$input_bams
 echo "[sample names] "$sample_names
 echo "[scripts dir] "$software
 
+# check for required programs
+for i in $required_programs; do 
+	if ! which $i > /dev/null; then
+		echo "ERROR: Can't find "${i}". Please add this to your PATH and restart"; 
+		exit 1
+	fi;
+done
+for i in $required_savi_programs; do 
+	if [ ! -e savi/$i ]; then 
+		echo -e "ERROR: SAVI/"${i}" not found. Please make sure you've made the binaries:\ncd SAVI/savi\nmake;"; 
+		exit 1
+	fi; 
+done
+
 # check for bams
 for i in $input_bams; do 
 	if [ ! -e ${i} ]; then 
@@ -200,13 +217,15 @@ for i in $input_bams; do
 		exit 1
 	fi; 
 done
-# check for ref
+
+# check for reference
 if [ ! -e ${ref} ]; then 
 	echo "Cannot find the reference file:"
 	echo "${ref}"
 	exit 1
 fi
-# check for faidx-indexed ref
+
+# check for reference faidx-index 
 if [ -e ${ref}.fai ]; then
 	echo "[reference] "$ref
 else

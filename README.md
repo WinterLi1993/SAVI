@@ -16,7 +16,7 @@ The following programs must be in your `PATH`:
 - python 
 - java
 - [Samtools](http://samtools.sourceforge.net)
-- [SnpEff](http://snpeff.sourceforge.net) (i.e., `which snpEff.jar` must return a path)
+- [SnpEff](http://snpeff.sourceforge.net) v3.5 (i.e., `which snpEff.jar` must return a path)
 - [tabix](http://samtools.sourceforge.net/tabix.shtml)
 - [bgzip](http://samtools.sourceforge.net/tabix.shtml)
 - [vcflib](https://github.com/ekg/vcflib)
