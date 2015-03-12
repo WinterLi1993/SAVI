@@ -283,7 +283,7 @@ if [[ $stepstr == *1* ]]; then
 
 	# if empty
 	if [ ! -s ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt ]; then
-		echo "[halt script] pileup file is empty"
+		echo "[HALT SCRIPT] pileup file is empty"
 		exit 0;
 	fi
 fi
@@ -304,7 +304,7 @@ if [[ $stepstr == *2* ]]; then
 
 	# if empty
 	if [ $( zcat ${outputdir}/${SGE_TASK_ID}.vcf.bgz | sed '/^#/d' | head | wc -l ) == 0 ]; then
-		echo "[halt script] vcf file is empty"
+		echo "[HALT SCRIPT] vcf file is empty"
 		exit 0;
 	fi
 
@@ -369,10 +369,10 @@ if [[ $stepstr == *4* ]]; then
 		rm ${outputdir}/savi_${SGE_TASK_ID}/out/freqsavi.vcf.bgz ${outputdir}/savi_${SGE_TASK_ID}/out/freqsavi.vcf.bgz.tbi
 	fi
 
-	# if empty
+	# if SAVI vcf empty
 	if [ $( cat ${outputdir}/savi_${SGE_TASK_ID}/out/finalfilter.vcf | sed '/^#/d' | head | wc -l ) == 0 ]; then
-		echo "[halt script] SAVI vcf file is empty"
-		exit 0;
+		echo "[WARNING] SAVI vcf file is empty"
+		# exit 0;
 	fi
 
 	echo "[date 4] "`date`;
