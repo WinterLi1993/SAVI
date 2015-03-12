@@ -203,7 +203,7 @@ for i in $required_programs; do
 	fi;
 done
 for i in $required_savi_programs; do 
-	if [ ! -e savi/$i ]; then 
+	if [ ! -e ${software}/savi/$i ]; then 
 		echo -e "ERROR: SAVI/"${i}" not found. Please make sure you've made the binaries:\ncd SAVI/savi\nmake;"; 
 		exit 1
 	fi; 
