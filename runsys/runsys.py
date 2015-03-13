@@ -3,13 +3,14 @@
 import subprocess
 
 def escape_special_char(mystr):
-	"""fix string for shell commands by escaping quotes and dollar signs. The idea is, we want to be able to use the echo "cmd" | sh construction"""
+	"""fix string for shell commands by escaping quotes and dollar signs. The idea is, we want to be able to use the echo "cmd" | bash construction"""
 	return mystr.replace('"','\\"').replace('$','\\$')
 
 def run_cmd(cmd, bool_verbose, bool_getstdout):
 	"""Run system cmd"""
 
-	cmd = "echo \"" + cmd + "\" | sh"
+	# cmd = "echo \"" + cmd + "\" | sh"
+	cmd = "echo \"" + cmd + "\" | bash"
 
 	if (bool_verbose): 
 		print(cmd)
