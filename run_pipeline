@@ -8,6 +8,7 @@ myregion=""					# user specified region (default NULL)
 mypartition=""					# user specified partition (default NULL)
 debug=0						# bool to turn on debugging (default: no)
 filter=1					# bool to do SAVI filter (default: yes)
+mapq=10						# pileup flag: skip alignments with mapQ less than (default: 10)
 stepstr=12345					# what steps to run (default: 1 thro 5)
 software=$( dirname $( readlink -m $0 ) )	# directory where to look for scripts
 input_bams=""					# input bam files
@@ -51,6 +52,7 @@ Options:
   --steps	steps to run (default: 1,2,3,4,5,6 (i.e., all except cnv))
   --memory	the memory for the Java virtual machine in gigabytes (default: 6)
   --mindepth	the minimum read depth required in at least one sample - positions without this wont appear in pileup file (default: 5)
+  --mapqual	pileup flag: skip alignments with mapQ less than this (default: 10)
   --debug	do not delete tmp intermediate files  (default: off)
   --nofilter	do not use SAVI comparison filter (default: off) (you should use this option if NOT doing comparisons)
   --scripts	location of scripts dir  (directory where this script resides - use this option only if qsub-ing)
@@ -134,6 +136,10 @@ while [ $# -gt 0 ]; do
 	elif [  "$1" == "-mindepth" -o "$1" == "--mindepth" ]; then
 		shift; 
 		cutoff=$1;
+		shift
+	elif [  "$1" == "-mapqual" -o "$1" == "--mapqual" ]; then
+		shift; 
+		mapq=$1;
 		shift
 	elif [  "$1" == "-ag" -o "$1" == "--ann-genome" ]; then
 		shift; 
@@ -275,7 +281,7 @@ if [[ $stepstr == *1* ]]; then
 	### mpileup
 	# for mpileup - note the -d flag: "max per-BAM depth to avoid excessive memory usage [250]." The default of 250 is way too low, so we jack it up
 	# awk line - we want only lines where normal has depth > cutoff, and at least one of the tumor samples has depth > cutoff
-	samtools mpileup -d 100000 -L 100000 ${regionflag} -f $ref ${input_bams} \
+	samtools mpileup -q ${mapq} -d 100000 -L 100000 ${regionflag} -f $ref ${input_bams} \
 	    | awk -v num=${num_bams} -v cutoff=${cutoff} '{true=0; for (i = 1; i <= num-1; i++) {if ($(4+i*3) > cutoff) {true=1}}; if (num==1 && $4>cutoff) {print} else if (num>1 && $4>cutoff && true) {print}}' \
 	    > ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt
 
@@ -461,6 +467,9 @@ echo "[STEP CLEANUP] clean up"
 # if not debug
 if [ $debug -eq 0 ]; then 
 	rm -f ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt 
+	rm -f ${outputdir}/${SGE_TASK_ID}.all.vcf.bgz*
+	rm -f ${outputdir}/${SGE_TASK_ID}.vcf.bgz*
+	rm -f ${outputdir}/savi_${SGE_TASK_ID}/out/freqsavi.vcf.bgz*
 	rm -f ${outputdir3}/${SGE_TASK_ID}.qvt.txt
 	rm -f ${outputdir3}/${SGE_TASK_ID}.cnv.tmp.txt
 	rm -f ${outputdir3}/${SGE_TASK_ID}.tumor.copynumber
