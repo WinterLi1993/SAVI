@@ -16,7 +16,8 @@ sample_names=""					# sample names in a comma-delimited list
 num_bams=2					# number of input bams (default: 2)
 compsamp="2:1"					# the indices of sample to compare with savi (default: 2:1 - i.e., tumor vs norm)
 cutoff=5 					# min read depth cutoff
-anngenome="GRCh37.71"				# annotating reference for SnpEff (default: hg19)
+anngenome="hg19"				# annotating reference for SnpEff (default: hg19)
+# anngenome="GRCh37.71"				# annotating reference for SnpEff (default: hg19)
 annvcf=""					# annotating vcfs in comma-delimited list (default: none)
 						# common hg19 annotating vcfs in comma-delimited list
 savi_precision=0				# the SAVI precision, from the Hossein fix
