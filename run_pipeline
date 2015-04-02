@@ -57,7 +57,7 @@ Options:
   --debug	do not delete tmp intermediate files  (default: off)
   --nofilter	do not use SAVI comparison filter (default: off) (you should use this option if NOT doing comparisons)
   --scripts	location of scripts dir  (directory where this script resides - use this option only if qsub-ing)
-  --ann-genome  name of the SnpEff genome with which to annotate (default: GRCh37.71)
+  --ann-genome  name of the SnpEff genome with which to annotate (default: hg19)
   --ann-vcf     comma-delimited list of vcfs with which to provide additional annotation (default: none)
   --prior	input prior (default: savi/unif_prior01)
   --precision	the SAVI precision
