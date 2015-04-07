@@ -9,7 +9,7 @@ mypartition=""					# user specified partition (default NULL)
 debug=0						# bool to turn on debugging (default: no)
 filter=1					# bool to do SAVI filter (default: yes)
 mapq=10						# pileup flag: skip alignments with mapQ less than (default: 10)
-stepstr=1245					# what steps to run (default: 1,2,4,5)
+stepstr=1245					# what steps to run (default: 1,2,4,5 - don't generate prior)
 software=$( dirname $( readlink -m $0 ) )	# directory where to look for scripts
 input_bams=""					# input bam files
 sample_names=""					# sample names in a comma-delimited list
@@ -58,7 +58,7 @@ Options:
   --debug	do not delete tmp intermediate files  (default: off)
   --nofilter	do not use SAVI comparison filter (default: off) (you should use this option if NOT doing comparisons)
   --scripts	location of scripts dir  (directory where this script resides - use this option only if qsub-ing)
-  --ann-genome  name of the SnpEff genome with which to annotate (default: hg19)
+  --ann-genome  name of the SnpEff genome with which to annotate (default: GRCh37.71)
   --noncoding	use snpEff to find all transcripts, not just only protein transcripts (default: off)
   --ann-vcf     comma-delimited list of vcfs with which to provide additional annotation (default: none)
   --prior	input prior (default: savi/prior_unif01)
@@ -356,17 +356,19 @@ if [[ $stepstr == *3* ]]; then
 		      --input ${outputdir}/${SGE_TASK_ID}.all.vcf.bgz;
 	done;
 
+	# if run step3, create prior string for priors specified in compsamp
+	# if compsamp="2:1", it should look like this - 1:${outputdir}/savi/prior1/prior,2:${outputdir}/savi/prior2/prior
+	priorstring=$( for i in $( echo ${compsamp} | sed 's|,|\n|g; s|:|\n|g' | sort -u ); do echo -n "${i}:${outputdir}/savi/prior${i}/prior,"; done | sed 's|,$||'; echo )
 	echo "[date 3] "`date`;
+else
+	# if not step3, use diploid prior by default
+	priorstring=$( for i in $( echo ${compsamp} | sed 's|,|\n|g; s|:|\n|g' | sort -u ); do echo -n "${i}:${software}/savi/prior_diploid01,"; done | sed 's|,$||'; echo )
 fi
 
 if [[ $stepstr == *4* ]]; then
 	echo "[STEP4] run_savi"
 	### run_savi.py
 	mkdir -p ${outputdir}/savi/out
-
-	# prior string for priors specified in compsamp
-	# if compsamp="2:1", it should look like this - 1:${outputdir}/savi/prior1/prior,2:${outputdir}/savi/prior2/prior
-	priorstring=$( for i in $( echo ${compsamp} | sed 's|,|\n|g; s|:|\n|g' | sort -u ); do echo -n "${i}:${software}/savi/prior_diploid01,"; done | sed 's|,$||'; echo )
 
 	# invert filter variable
 	keepfreqfile=$( echo $filter | awk '{x=$1; print !x}' )
