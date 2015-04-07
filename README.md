@@ -16,7 +16,7 @@ The following programs must be in your `PATH`:
 - python 
 - java
 - [Samtools](http://samtools.sourceforge.net)
-- [SnpEff](http://snpeff.sourceforge.net) v3.5 (i.e., `which snpEff.jar` must return a path)
+- [SnpEff](http://snpeff.sourceforge.net) v4.1 C (i.e., `which snpEff.jar` must return a path)
 - [tabix](http://samtools.sourceforge.net/tabix.shtml)
 - [bgzip](http://samtools.sourceforge.net/tabix.shtml)
 - [vcflib](https://github.com/ekg/vcflib)
@@ -48,6 +48,15 @@ And various annotating vcfs:
 - CosmicVariants_v66_20130725.vcf - Cosmic variants
 - 219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf - Rabadan Lab supernormal
 - meganormal186TCGA.fix.sort.vcf - Rabadan Lab TCGA supernormal
+
+**Variant Calling Protocol**
+
+SAVI is *not* sufficient to get a reliable list of candidate mutations.
+Before you run SAVI, you should follow these steps:
+
+- first run [fastqc](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/) to check the quality of your fastq files
+- remove low quality sequences and remove adapter contamination with [cutadapt](http://cutadapt.readthedocs.org/en/stable/) 
+- run [picard](http://broadinstitute.github.io/picard/) to remove PCR duplicates
 
 **Workflow**
 
