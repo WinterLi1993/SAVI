@@ -55,8 +55,8 @@ SAVI is *not* sufficient to get a reliable list of candidate mutations.
 Before you run SAVI, you should follow these steps:
 
 - first run [fastqc](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/) to check the quality of your fastq files
+- remove low quality sequences and remove adapter contamination with [cutadapt](http://cutadapt.readthedocs.org/en/stable/), then re-check quality
 - map your reads with [bwa](http://bio-bwa.sourceforge.net)
-- remove low quality sequences and remove adapter contamination with [cutadapt](http://cutadapt.readthedocs.org/en/stable/) 
 - run [picard](http://broadinstitute.github.io/picard/) to remove PCR duplicates
 
 **Workflow**
