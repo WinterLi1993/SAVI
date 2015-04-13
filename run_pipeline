@@ -7,6 +7,8 @@ SGE_TASK_ID=0					# index of region (default: all (0))
 myregion=""					# user specified region (default NULL)
 mypartition=""					# user specified partition (default NULL)
 pv4=0						# bool to turn on bcftools to compute pv4 (default: no)
+noindeldepth=0					# bool which, if on, doesnt include include indel depth in SDP (default: no) (note: asteriks in mpileup are included irrespective of this flag)
+rdplusad=0					# bool which, if on, uses RD+AD rather than SDP for total depth (default: no)
 debug=0						# bool to turn on debugging (default: no)
 cleanup=1					# bool to turn on cleanup (default: yes)
 filter=1					# bool to do SAVI filter (default: yes)
@@ -34,40 +36,44 @@ $0 --bam [list_of_bam_files] --ref [ref]
 
 Required Arguments:
 
-  --bam		comma-delimited list of bam files (order should be: normal.bam, tumor.bam) (.bai indices should be present)
-  --ref		faidx-indexed ref
+  --bam			comma-delimited list of bam files (order should be: normal.bam, tumor.bam) (.bai indices should be present)
+  --ref			faidx-indexed ref
 
 Options:
 
-  --outputdir	the output directory (default: cwd)
-  --region	the genomic region to run SAVI on (default: full range) (example: chr1 or chr1:1-50000000)
-  		If you use this flag, the index you supply becomes the file suffix.
-  --index	the integer index of the region you want to run SAVI on.
-  		By default, 1 refers to the first chromosome in range.txt, 2 to the second, and so on.
-		If you use the partition flag, 1 refers to the first partition, 2 to the second and so on.
- 		(default: 0, which corresponds to the full range)
-  --partition	Number of bases into which to partition the genome.
-  		Use this flag, only if you want to break your genome into regions smaller than the chr length.
-		If you use this flag, you must also specify an index. For example, 
-	        "--partition 50000000 --index 1" would refer to chr1:1-50000000 for hg19
- 		(default: not used)
-  --names	sample names in a comma-delimited list (must be in the order of your bams) (default: off)
-  --compsamp	comma- colon- delimited indices of samples to compare with savi (default: 2:1) (example: 2:1,3:1,3:2)
-  --steps	steps to run (default: 1,2,3,4,5,6 (i.e., all except cnv))
-  --memory	the memory for the Java virtual machine in gigabytes (default: 6)
-  --mindepth	the minimum read depth required in at least one sample - positions without this wont appear in pileup file (default: 5)
-  --mapqual	pileup flag: skip alignments with mapQ less than this (default: 10)
-  --noclean	do not delete tmp intermediate files (default: off)
-  --pv4		run bcftools to compute PV4 (default: off)
-  --debug	echo commands (default: off)
-  --nofilter	do not use SAVI comparison filter (default: off) (you should use this option if NOT doing comparisons)
-  --scripts	location of scripts dir (directory where this script resides - use this option only if qsub-ing)
-  --ann-genome  name of the SnpEff genome with which to annotate (default: GRCh37.71)
-  --noncoding	use snpEff to find all transcripts, not just only protein transcripts (default: off)
-  --ann-vcf     comma-delimited list of vcfs with which to provide additional annotation (default: none)
-  --prior	input prior (default: savi/prior_unif01)
-  --precision	the SAVI precision
-  --help	print this message and exit
+  --outputdir		the output directory (default: cwd)
+  --region		the genomic region to run SAVI on (default: full range) (example: chr1 or chr1:1-50000000)
+			If you use this flag, the index you supply becomes the file suffix.
+  --index		the integer index of the region you want to run SAVI on.
+			By default, 1 refers to the first chromosome in range.txt, 2 to the second, and so on.
+			If you use the partition flag, 1 refers to the first partition, 2 to the second and so on.
+			(default: 0, which corresponds to the full range)
+  --partition		Number of bases into which to partition the genome.
+			Use this flag, only if you want to break your genome into regions smaller than the chr length.
+			If you use this flag, you must also specify an index. For example, 
+			"--partition 50000000 --index 1" would refer to chr1:1-50000000 for hg19
+			(default: not used)
+  --names		sample names in a comma-delimited list (must be in the order of your bams) (default: off)
+  --compsamp		comma- colon- delimited indices of samples to compare with savi (default: 2:1) (example: 2:1,3:1,3:2)
+  --steps		steps to run (default: 1,2,3,4,5,6 (i.e., all except cnv))
+  --memory		the memory for the Java virtual machine in gigabytes (default: 6)
+  --mindepth		the minimum read depth required in at least one sample - positions without this wont appear in pileup file (default: 5)
+  --mapqual		pileup flag: skip alignments with mapQ less than this (default: 10)
+  --noclean		do not delete tmp intermediate files (default: off)
+  --pv4			run bcftools to compute PV4 (default: off)
+  --noindeldepth	do not include include indel reads in total depth count (SDP) (default: off) 
+  			(note: asteriks in mpileup are included irrespective of this flag)
+  --rdplusad		use reference-agreeing reads plus alternate-calling reads (RD+AD) rather than total depth (SDP) as input to savi (default: off)
+  			(note: this flag changes read depths on positions where there are multiallelic variants)
+  --debug		echo commands (default: off)
+  --nofilter		do not use SAVI comparison filter (default: off) (you should use this option if NOT doing comparisons)
+  --scripts		location of scripts dir (directory where this script resides - use this option only if qsub-ing)
+  --ann-genome		name of the SnpEff genome with which to annotate (default: GRCh37.71)
+  --noncoding		use snpEff to find all transcripts, not just only protein transcripts (default: off)
+  --ann-vcf		comma-delimited list of vcfs with which to provide additional annotation (default: none)
+  --prior		input prior (default: savi/prior_unif01)
+  --precision		the SAVI precision
+  --help		print this message and exit
 
 Example:
 
@@ -162,6 +168,12 @@ while [ $# -gt 0 ]; do
 	elif [  "$1" == "-noclean" -o "$1" == "--noclean" ]; then
 		shift; 
 		cleanup=0; 
+	elif [  "$1" == "-rdplusad" -o "$1" == "--rdplusad" ]; then
+		shift; 
+		rdplusad=1;
+	elif [  "$1" == "-noindeldepth" -o "$1" == "--noindeldepth" ]; then
+		shift; 
+		noindeldepth=1;
 	elif [  "$1" == "-pv4" -o "$1" == "--pv4" ]; then
 		shift; 
 		pv4=1;
@@ -215,6 +227,8 @@ echo "[partition] "$mypartition
 echo "[cleanup bool] "$cleanup
 echo "[pv4 bool] "$pv4
 echo "[debug bool] "$debug
+echo "[no indel depth bool] "$noindeldepth
+echo "[RD+AD bool] "$rdplusad
 echo "[filter] "$filter
 echo "[mapq qual threshold for samtools mpileup] "$mapq
 echo "[savi steps to run] "$stepstr
@@ -332,10 +346,17 @@ if [[ $stepstr == *2* ]]; then
 	echo "[STEP2] pileup2vcf"
 	### Oscan
 	# call everything, variants and non-variants alike
-	# use awk to patch a problem that samtools mpileup does not include indels in the total read count - with the exception of *s
-	# this is a hack to add indel depths to SDP
-	cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/savi/pileup2multiallele_vcf --all --header \
-	    | awk '{if ( $0 ~ /^#/) {print} else if (length($4) == 1 && length($5) == 1) {print} else { for (i = 1; i <= NF; i++) { if (i==1) {printf $i} else if (i < 10) {printf "\t"$i} else {split($i,x,":"); printf "\t"; for (j = 1; j <= length(x); j++) {if (j==1) {printf x[j]} else if (j==3) {printf ":"x[3]+x[6]} else {printf ":"x[j]}} }}; printf "\n"}}' \
+
+	if [ $noindeldepth == 0 ]; then
+		# addresses a problem that samtools mpileup does not include indels in the total read count (with the exception of *s)
+		# so add indel depths to SDP
+		oscanflag="--all --header --includeindels";
+	else
+		# don't include indel reads in total depth count
+		oscanflag="--all --header";
+	fi
+
+	cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/savi/pileup2multiallele_vcf $oscanflag \
 	    | tee ${outputdir}/${SGE_TASK_ID}.all.vcf | awk '{ if ($0 ~ /^#/ || toupper($4) != toupper($5)) {print}}' | bgzip > ${outputdir}/${SGE_TASK_ID}.vcf.bgz
 
 	cat ${outputdir}/${SGE_TASK_ID}.all.vcf | bgzip > ${outputdir}/${SGE_TASK_ID}.all.vcf.bgz
