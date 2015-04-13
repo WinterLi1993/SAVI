@@ -20,8 +20,14 @@ using namespace std;
 bool verbose = false;		// bool verbose
 bool debug = false;		// bool debug
 bool allvar = false;		// bool - if true, print all lines not just variants
+bool includeindels = false;	// bool - if true, include indels in total read depth count
 bool bool_pval = false;		// bool - strand bias p val
 int qual_offset = 33; 		// quality offset
+
+// from the samtools man page (http://samtools.sourceforge.net/samtools.shtml):
+/*
+In the pileup format (without -uor-g), each line represents a genomic position, consisting of chromosome name, coordinate, reference base, read bases, read qualities and alignment mapping qualities. Information on match, mismatch, indel, strand, mapping quality and start and end of a read are all encoded at the read base column. At this column, a dot stands for a match to the reference base on the forward strand, a comma for a match on the reverse strand, a ’>’ or ’<’ for a reference skip, ‘ACGTN’ for a mismatch on the forward strand and ‘acgtn’ for a mismatch on the reverse strand. A pattern ‘\+[0-9]+[ACGTNacgtn]+’ indicates there is an insertion between this reference position and the next reference position. The length of the insertion is given by the integer in the pattern, followed by the inserted sequence. Similarly, a pattern ‘-[0-9]+[ACGTNacgtn]+’ represents a deletion from the reference. The deleted bases will be presented as ‘*’ in the following lines. Also at the read base column, a symbol ‘^’ marks the start of a read. The ASCII of the character following ‘^’ minus 33 gives the mapping quality. A symbol ‘$’ marks the end of a read segment.
+*/
 
 // statistical functions taken verbatim from here:
 // http://genome.sph.umich.edu/w/images/d/d8/Bios615-fa12-lec03-handout.pdf
@@ -128,7 +134,8 @@ struct triple
 struct counts
 {
 	// ref counts
-	int sdp; // raw depths
+	int sdp; // raw depths, as reported by pileup
+	int isdp; // raw depths, including indels (which pileup DOES NOT include by default, with the exception of deleted bases ('*')
 	int rdf; // reverse reads
 	int rdr; // forward reads
 	int rbq; // read base qual
@@ -136,6 +143,7 @@ struct counts
 	void setzero()
 	{
 		sdp = 0;
+		isdp = 0;
 		rdf = 0;
 		rdr = 0;
 		rbq = 0;
@@ -301,9 +309,13 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 					p_val = convertDouble(fastFishersExactTest(myval[i].f, myval[i].r, vec_count[i].rdf, vec_count[i].rdr));
 				}
 			}
+			
+			// total depth - definition changes - depending on either mpileup def or include indels def
+			string mytotdepth;		
+			includeindels ? mytotdepth = convertInt(vec_count[i].isdp) : mytotdepth = convertInt(vec_count[i].sdp);
 
 			// GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR
-			alt_format = alt_format + "\t" + gt + ":.:" + convertInt(vec_count[i].sdp) + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + convertInt(myval[i].f + myval[i].r) + ":.:" + p_val + ":" + rbq + ":" + abq +":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + convertInt(myval[i].f) + ":" + convertInt(myval[i].r);
+			alt_format = alt_format + "\t" + gt + ":.:" + mytotdepth + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + convertInt(myval[i].f + myval[i].r) + ":.:" + p_val + ":" + rbq + ":" + abq +":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + convertInt(myval[i].f) + ":" + convertInt(myval[i].r);
 		}
 
 		// only print line if have a variant
@@ -326,7 +338,11 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 				rbq = convertInt(int(vec_count[i].rbq/(vec_count[i].rdf + vec_count[i].rdr)));
 			}
 
-			alt_ref_format = alt_ref_format + "\t" + "0/0" + ":.:" + convertInt(vec_count[i].sdp) + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + "0" + ":.:.:" + rbq  + ":" + "0" + ":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + "0" + ":" + "0";
+			// total depth - definition changes - depending on either mpileup def or include indels def
+			string mytotdepth;		
+			includeindels ? mytotdepth = convertInt(vec_count[i].isdp) : mytotdepth = convertInt(vec_count[i].sdp);
+
+			alt_ref_format = alt_ref_format + "\t" + "0/0" + ":.:" + mytotdepth + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + "0" + ":.:.:" + rbq  + ":" + "0" + ":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + "0" + ":" + "0";
 		}
 
 		// print
@@ -365,8 +381,12 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 				abq = convertInt(int(myval[i].q/(myval[i].f + myval[i].r)));
 			}
 
+			// total depth - definition changes - depending on either mpileup def or include indels def
+			string mytotdepth;		
+			includeindels ? mytotdepth = convertInt(vec_count[i].isdp) : mytotdepth = convertInt(vec_count[i].sdp);
+
 			// GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR
-			alt_format = alt_format + "\t" + gt + ":.:" + convertInt(vec_count[i].sdp) + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + convertInt(myval[i].f + myval[i].r) + ":.:.:" + rbq + ":" + abq +":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + convertInt(myval[i].f) + ":" + convertInt(myval[i].r);
+			alt_format = alt_format + "\t" + gt + ":.:" + mytotdepth + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + convertInt(myval[i].f + myval[i].r) + ":.:.:" + rbq + ":" + abq +":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + convertInt(myval[i].f) + ":" + convertInt(myval[i].r);
 		}
 
 		// if deletion
@@ -479,6 +499,7 @@ void read_pileup(char *s, string sample_names)
 			vec_count.push_back(mycounts);
 
 			// skip sample if raw depth == 0
+			// there could be an exception if there's an indel with ref supporting or mismatch supporting reads (fix later)
 			if ( depth == 0 )
 			{
 				continue;
@@ -511,7 +532,7 @@ void read_pileup(char *s, string sample_names)
 					continue;
 				}
 
-				bool bool_regular_base = 0;	// bool for regular base (AaCcGgTt)
+				bool bool_regular_base = 0;	// bool for regular base (AaCcGgTtNn)
 
 				// one after "+" or "-" char, so get length of indel
 				if ( abs(flag_indel) == 1 )
@@ -604,7 +625,14 @@ void read_pileup(char *s, string sample_names)
 
 				if (bases[k] == '*')
 				{
-					// do nothing
+					// deleted base - increment real total reads, isdp
+					/* 
+					A pattern ‘\+[0-9]+[ACGTNacgtn]+’ indicates there is an insertion between this reference position 
+					and the next reference position. The length of the insertion is given by the integer in the pattern, 
+					followed by the inserted sequence. Similarly, a pattern ‘-[0-9]+[ACGTNacgtn]+’ represents a deletion 
+					from the reference. The deleted bases will be presented as ‘*’ in the following lines.
+					*/
+					vec_count[i].isdp += 1;
 				}
 				else if (bases[k] == '$')
 				{
@@ -618,6 +646,9 @@ void read_pileup(char *s, string sample_names)
 				// match ref
 				else if (bases[k] == '.')
 				{
+					// increment real total reads, isdp
+					vec_count[i].isdp += 1;
+
 					// increment ref matching base count
 					vec_count[i].rdf += 1;
 					// increment qual score
@@ -627,6 +658,9 @@ void read_pileup(char *s, string sample_names)
 				}
 				else if (bases[k] == ',')
 				{
+					// increment real total reads, isdp
+					vec_count[i].isdp += 1;
+
 					vec_count[i].rdr += 1;
 					vec_count[i].rbq += ascii2qual(quals[realbasecount], qual_offset);
 					bool_regular_base = 1;
@@ -634,15 +668,24 @@ void read_pileup(char *s, string sample_names)
 				// indel
 				else if (bases[k] == '+')
 				{
+					// increment real total reads, isdp
+					vec_count[i].isdp += 1;
+
 					flag_indel = 1;
 				}
 				else if (bases[k] == '-')
 				{
+					// increment real total reads, isdp
+					vec_count[i].isdp += 1;
+
 					flag_indel = -1;
 				}
-				// mismatch
-				else if (toupper(bases[k]) == 'A' || toupper(bases[k]) == 'C' || toupper(bases[k]) == 'T' || toupper(bases[k]) == 'G')
+				// mismatch (including N)
+				else if (toupper(bases[k]) == 'A' || toupper(bases[k]) == 'C' || toupper(bases[k]) == 'T' || toupper(bases[k]) == 'G' || toupper(bases[k]) == 'N')
 				{
+					// increment real total reads, isdp
+					vec_count[i].isdp += 1;
+
 					// base on reverse strand
 					bool is_reverse = true; 
 					if (toupper(bases[k]) == bases[k]) is_reverse = false;
@@ -801,6 +844,12 @@ void pileup2vcf(int argc, char **argv)
 		{
 			// verbose
 			verbose = true;
+			i++;
+		}
+		else if (strcmp(argv[i],"--includeindels") == 0)
+		{
+			// verbose
+			includeindels = true;
 			i++;
 		}
 		else if (strcmp(argv[i],"-q") == 0 || strcmp(argv[i],"--quality") == 0)
