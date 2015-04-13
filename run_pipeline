@@ -6,6 +6,7 @@ java_memory=6					# memory of the Java virtual mach in Gigabytes (default: 6)
 SGE_TASK_ID=0					# index of region (default: all (0))
 myregion=""					# user specified region (default NULL)
 mypartition=""					# user specified partition (default NULL)
+pv4=0						# bool to turn on bcftools to compute pv4 (default: no)
 debug=0						# bool to turn on debugging (default: no)
 cleanup=1					# bool to turn on cleanup (default: yes)
 filter=1					# bool to do SAVI filter (default: yes)
@@ -24,7 +25,7 @@ annvcf=""					# annotating vcfs in comma-delimited list (default: none)
 						# common hg19 annotating vcfs in comma-delimited list
 savi_precision=0				# the SAVI precision, from the Hossein fix
 						# required programs
-required_programs="java python samtools snpEff.jar bgzip tabix vcffilter"
+required_programs="java python samtools snpEff.jar bgzip tabix vcffilter bcftools"
 required_savi_programs="pileup2multiallele_vcf add_to_info make_qvt savi_poster savi_conf savi_comp savi_poster_accum savi_poster_merge savi_poster_prt savi_unif_prior savi_txt2prior"
 helpmessage=$( cat <<EOF
 Usage:
@@ -56,10 +57,11 @@ Options:
   --memory	the memory for the Java virtual machine in gigabytes (default: 6)
   --mindepth	the minimum read depth required in at least one sample - positions without this wont appear in pileup file (default: 5)
   --mapqual	pileup flag: skip alignments with mapQ less than this (default: 10)
-  --noclean	do not delete tmp intermediate files  (default: off)
-  --debug	echo commands  (default: off)
+  --noclean	do not delete tmp intermediate files (default: off)
+  --pv4		run bcftools to compute PV4 (default: off)
+  --debug	echo commands (default: off)
   --nofilter	do not use SAVI comparison filter (default: off) (you should use this option if NOT doing comparisons)
-  --scripts	location of scripts dir  (directory where this script resides - use this option only if qsub-ing)
+  --scripts	location of scripts dir (directory where this script resides - use this option only if qsub-ing)
   --ann-genome  name of the SnpEff genome with which to annotate (default: GRCh37.71)
   --noncoding	use snpEff to find all transcripts, not just only protein transcripts (default: off)
   --ann-vcf     comma-delimited list of vcfs with which to provide additional annotation (default: none)
@@ -160,6 +162,9 @@ while [ $# -gt 0 ]; do
 	elif [  "$1" == "-noclean" -o "$1" == "--noclean" ]; then
 		shift; 
 		cleanup=0; 
+	elif [  "$1" == "-pv4" -o "$1" == "--pv4" ]; then
+		shift; 
+		pv4=1;
 	elif [  "$1" == "-debug" -o "$1" == "--debug" ]; then
 		shift; 
 		debug=1; 
@@ -208,6 +213,7 @@ echo "[java memory] "$java_memory
 echo "[index] "$SGE_TASK_ID
 echo "[partition] "$mypartition
 echo "[cleanup bool] "$cleanup
+echo "[pv4 bool] "$pv4
 echo "[debug bool] "$debug
 echo "[filter] "$filter
 echo "[mapq qual threshold for samtools mpileup] "$mapq
@@ -449,6 +455,7 @@ if [[ $stepstr == *5* ]]; then
 
 		# if final iteration of loop, convert from vcf to human readable tab-delimited report
 		if [ $myindex -eq $num_vcfs ]; then
+
 			# if savi comparisons
 			if [ $filter -eq 1 ]; then 
 				# make a string for the vcffilter - e.g., if $compsamp is 2:1,3:1,5 then $filterstring will be PD21_L > 0 | PD31_L > 0
@@ -468,9 +475,11 @@ if [[ $stepstr == *5* ]]; then
 				reportoptions="--samples $sample_names"
 			fi
 
+			# turn vcf into human readable, tab delimited report
 			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.all.txt
 			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.filter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.filter.txt
 			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.revfilter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.revfilter.txt
+
 		fi
 
 		myindex=$(($myindex + 1))
@@ -516,7 +525,7 @@ fi
 echo "[STEP CLEANUP] clean up"
 # if cleanup
 if [ $cleanup -eq 1 ]; then 
-	rm -f ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt 
+	rm -f ${outputdir}/tmp_mpile.${SGE_TASK_ID}.*
 	rm -f ${outputdir}/${SGE_TASK_ID}.all.vcf.bgz*
 	rm -f ${outputdir}/${SGE_TASK_ID}.vcf.bgz*
 	rm -f ${outputdir}/savi/out/freqsavi.vcf.bgz*
@@ -530,3 +539,11 @@ rm -f ${outputdir}/savi/out/finalsavi.vcf
 time2=$( date "+%s" )
 echo "[deltat] "$(( $time2 - $time1 ))
 echo "[END] "`date`
+
+# add_pv4 ()
+# {
+#	local myreport=$1;
+
+	# from the original pileup file, this extracts the subset of nonindel positions in $myreport
+#	cat <( cat $myreport | awk '$0 !~ /^#/ && length($4)==1 && length($5)==1{if ($1","$2 in a) {} else {print $1"\t"$2; a[$1","$2]=1}}' ) ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | sort -k1,1 -k2,2n -k3,3 | awk -F"\t" 'BEGIN{flag=0}{if (NF==2) {flag=1} else if (flag==1) {print; flag=0;}}' > ${outputdir}/tmp_mpile.${SGE_TASK_ID}.subset.txt
+# }
