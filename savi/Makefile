@@ -9,8 +9,10 @@ pileup2multiallele_vcf: pileup2multiallele_vcf.cpp
 add_to_info: add_to_info.cpp
 	$(CC) $(CFLAGS) add_to_info.cpp -o add_to_info
 
+# for up to date versions of gcc, use: -std=c++11
+# needed to use: http://www.cplusplus.com/reference/string/stoi/
 make_qvt: make_qvt.cpp
-	$(CC) $(CFLAGS) make_qvt.cpp -o make_qvt
+	$(CC) $(CFLAGS) -std=c++0x make_qvt.cpp -o make_qvt
 	
 savi_poster: savi.cpp fasd/dcdflib.cpp fasd/dcdflib.h
 	$(CC) $(CFLAGS) -Dmposter savi.cpp fasd/dcdflib.cpp -o savi_poster

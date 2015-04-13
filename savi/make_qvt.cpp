@@ -33,6 +33,9 @@ preprocessor directives
 #define #error #import	#undef #elif #if #include #using #else #ifdef #line #endif #ifndef #pragma
 */
 
+// global variables
+bool rdplusad = false;		// use RD+AD as total depth, not SDP
+
 // http://stackoverflow.com/questions/236129/how-to-split-a-string-in-c
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems)
 {
@@ -64,6 +67,17 @@ std::vector<std::string> split(const std::string &s, char delim)
 	std::vector<std::string> elems;
 	split(s, delim, elems);
 	return elems;
+}
+
+// convert integer to string
+string convertInt(int number)
+{
+	// from:
+	// http://www.cplusplus.com/forum/beginner/7777/
+
+	stringstream ss;	//create a stringstream
+	ss << number;		//add number to the stream
+	return ss.str();	//return a string with the contents of the stream
 }
 
 
@@ -261,20 +275,29 @@ void read_vcf(char *s, bool leadingone, int samplenum_1, string &samplestr, bool
 			if ( wellformed_line )
 			{
 				int myqual = ( atoi(vec_s1_field[index_ref_qual].c_str()) + atoi(vec_s1_field[index_var_qual].c_str()) )/2;
-				// int mytot = atoi(vec_s1_field[index_ref].c_str()) + atoi(vec_s1_field[index_var].c_str());
+				// total depth at the position
+				int mytot;
+
+				if ( rdplusad ) 
+				{
+					// if rdplusad, use mytot = RD + AD
+					mytot = atoi(vec_s1_field[index_ref].c_str()) + atoi(vec_s1_field[index_var].c_str());
+				}
+				else
+				{
+					// else use mytot = SDP
+					mytot = stoi(vec_s1_field[index_tot]);
+				}
 
 				// 1 q v d 
 				if ( leadingone )
 				{
-					// cout << "1\t" << myqual << "\t" << vec_s1_field[index_var] << "\t" << mytot;
-					// change tot from ref+var to actual tot
-					cout << "1\t" << myqual << "\t" << vec_s1_field[index_var] << "\t" << vec_s1_field[index_tot];
+					cout << "1\t" << myqual << "\t" << vec_s1_field[index_var] << "\t" << mytot;
 				}
 				// q v d 
 				else
 				{
-					// cout << myqual << "\t" << vec_s1_field[index_var] << "\t" << mytot;
-					cout << myqual << "\t" << vec_s1_field[index_var] << "\t" << vec_s1_field[index_tot];
+					cout << myqual << "\t" << vec_s1_field[index_var] << "\t" << mytot;
 				}
 			}
 			// else print 0's
@@ -311,11 +334,21 @@ void read_vcf(char *s, bool leadingone, int samplenum_1, string &samplestr, bool
 
 				if ( wellformed_line )
 				{
+					int mytot;
+
+					if ( rdplusad ) 
+					{
+						// if rdplusad, use mytot = RD + AD
+						mytot = atoi(vec_s2_field[index_ref].c_str()) + atoi(vec_s2_field[index_var].c_str());
+					}
+					else
+					{
+						// else use mytot = SDP
+						mytot = stoi(vec_s2_field[index_tot]);
+					}
+
 					int myqual = ( atoi(vec_s2_field[index_ref_qual].c_str()) + atoi(vec_s2_field[index_var_qual].c_str()) )/2;
-					// int mytot = atoi(vec_s2_field[index_ref].c_str()) + atoi(vec_s2_field[index_var].c_str());
-					// cout << "\t" << myqual << "\t" << vec_s2_field[index_var] << "\t" << mytot << endl;
-					cout << "\t" << myqual << "\t" << vec_s2_field[index_var] << "\t" << vec_s2_field[index_tot] << endl;
-					
+					cout << "\t" << myqual << "\t" << vec_s2_field[index_var] << "\t" << mytot << endl;
 				}
 				// else print 0's
 				else
@@ -351,7 +384,7 @@ void make1p(int argc, char **argv)
 	int samplenum = 1;		// index of the sample for which to produce q v t 
 	string samplestr = "";		// comma-delimited list of sample indices (if more than one)
 
-	string myhelp = "Make the prior files for savi\nTake a vcf input and produce a file with columns: quality, variant depth, total depth\nNOTE: the sub-fields of the FORMAT field of the vcf file MUST BE THE SAME throughout the file\n\nFlags:\n -1: print a column of leading ones\n -f,--vcf: vcf file (if you leave this flag off, the program expects input piped from std:in)\n -s,--sample: sample index (e.g., 1)\n -2s,--2sample: indices of two samples in a comma-delimited list (e.g., 2,3)\n -h,--help: help\n -v,--verbose: verbose mode";
+	string myhelp = "Make the prior files for savi\nTake a vcf input and produce a file with columns: quality, variant depth, total depth\nNOTE: the sub-fields of the FORMAT field of the vcf file MUST BE THE SAME throughout the file\n\nFlags:\n -1: print a column of leading ones\n -f,--vcf: vcf file (if you leave this flag off, the program expects input piped from std:in)\n -s,--sample: sample index (e.g., 1)\n -2s,--2sample: indices of two samples in a comma-delimited list (e.g., 2,3)\n -h,--help: help\n -rdplusad,--rdplusad: use reference agreeing reads plus variant calling reads (RD+AD) for the total depth, rather than SDP\n -v,--verbose: verbose mode";
 
 	if (argc == 1)
 	{
@@ -396,9 +429,16 @@ void make1p(int argc, char **argv)
 			i++;
 			samplestr = argv[i];
 		}
+		else if (strcmp(argv[i],"-rdplusad") == 0 || strcmp(argv[i],"--rdplusad") == 0)
+		{
+			// use RD + AD, not SDP, as total depth 
+			i++;
+			rdplusad = true;
+		}
 		else if (strcmp(argv[i],"-v") == 0 || strcmp(argv[i],"--verbose") == 0)
 		{
 			// verbose
+			i++;
 			verbose = true;
 		}
 		else
