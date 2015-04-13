@@ -36,7 +36,7 @@ make
 SAVI needs a reference fasta file (whatever you mapped your bams to) and its faidx index.
 It is also helpful to use various vcf files to provide additional annotation.
 You can download all of this on the Rabadan lab homepage [here](http://rabadan.c2b2.columbia.edu/public/savi_resources/).
-You'll find the following files. A human reference, hg19:
+You'll find the following files. A human reference, GRCh37.71:
 
 - GRCh37.71.chr.fa
 - GRCh37.71.chr.fa.fai
