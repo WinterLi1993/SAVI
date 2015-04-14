@@ -12,8 +12,11 @@ from runsys.runsys import whichcmd, escape_special_char
 
 # -------------------------------------
 
+# global variables
 script_dir = os.path.dirname(__file__)
 cwdir = os.getcwd()
+# flag for make_qvt
+qvtargs = ""
 # prior_dict = {}
 
 def main():
@@ -107,7 +110,7 @@ def run_vlad_code_present(args, savidir, inplist):
 		# cat testout/sample_4_1.1p | ../savi/savi_poster -p testout/prior | ../savi/savi_conf -z | cut -f4- > testout/savi/conf_4.txt
 			
 		if (args.verbose): print("\n# make a presence call for sample " + i);
-		cmd = prependcmd + args.bin + "/make_qvt -1 -s " + i  + " | " + \
+		cmd = prependcmd + args.bin + "/make_qvt -1 -s " + i  + " " + qvtargs + " | " + \
 		args.bin + "/savi_poster -p " + prior_dict[i] + " | " + \
 		args.bin + "/savi_conf -s " + args.saviprecision + " | cut -f4- | awk -v samp=" + i + " '" + '{print "S"samp"_P="$1";S"samp"_PF="$2}' + "' > " + savidir + "/conf_" + i + ".txt"
 		# args.bin + "/savi_conf -z | cut -f4- | awk -v samp=" + i + " '" + '{print "S"samp"_P="$1";S"samp"_PF="$2}' + "' > " + savidir + "/conf_" + i + ".txt"
@@ -198,7 +201,7 @@ def run_vlad_code_freq(args, savidir, inplist):
 	for i in inplist:
 
 		if (args.verbose): print("\n# compute freq for sample " + i);
-		cmd = firstcmd + args.bin + "/make_qvt -1 -s " + i  + " | " + \
+		cmd = firstcmd + args.bin + "/make_qvt -1 -s " + i + " " + qvtargs + " | " + \
 		args.bin + "/savi_poster -p " + prior_dict[i] + " | " + \
 		args.bin + "/savi_conf -fs " + args.saviconf + " " + args.saviprecision + " | awk -v samp=" + i + " '" + '{mystr="P"samp; print mystr"_F="$1";"mystr"_L="$5";"mystr"_U="$(NF-1)}' + "' > " + savidir + "/freq_" + i + ".txt"
 		# args.bin + "/savi_conf -fc " + args.saviconf + " | awk -v samp=" + i + " '" + '{mystr="P"samp; print mystr"_F="$1";"mystr"_L="$5";"mystr"_U="$(NF-1)}' + "' > " + savidir + "/freq_" + i + ".txt"
@@ -277,7 +280,7 @@ def run_vlad_code_compare(args, savidir, inplist):
 		# paste testout/sample_3_1.1p testout/sample_4_1.1p | cut -f1-4,6-8 | ../savi/savi_poster -pd testout/prior testout/prior | ../savi/savi_conf -fc 1e-5  > testout/savi/pd_34.txt
 
 		cmd = "zcat " + savidir + "/freqsavi.vcf.bgz | " + \
-		args.bin + "/make_qvt -1 -2s " + str_a + "," + str_b + " | " + \
+		args.bin + "/make_qvt -1 -2s " + str_a + "," + str_b + " " + qvtargs + " | " + \
 		args.bin + "/savi_poster -pd " + prior_a + " " + prior_b + " | " + \
 		args.bin + "/savi_conf -fs " + args.saviconf + " " + args.saviprecision + " | awk -v samp1=" + str_a + " -v samp2=" + str_b + " '" + '{mystr="PD"samp1 samp2; print mystr"_F="$1";"mystr"_L="$5";"mystr"_U="$(NF-1)}' + "' > " + savidir + "/pd_" + str_a + str_b + ".txt"
 		# args.bin + "/savi_conf -fc " + args.saviconf + " | awk -v samp1=" + str_a + " -v samp2=" + str_b + " '" + '{mystr="PD"samp1 samp2; print mystr"_F="$1";"mystr"_L="$5";"mystr"_U="$(NF-1)}' + "' > " + savidir + "/pd_" + str_a + str_b + ".txt"
@@ -358,7 +361,7 @@ def get_arg():
 	parser.add_argument("--example", 						action="store_true",		help="print example command and exit")
 	parser.add_argument("--debug", 							action="store_true",		help="dont clean up intermediate files. Default: off")
 	# argument as well as pipe-able
-	parser.add_argument("-i", "--input",										help="a (multi-sample) vcf file whose sample fields at least have the subfields RBQ ABQ RD AD. Must be bgzipped and indexed for tabix")
+	parser.add_argument("-i", "--input",										help="a (multi-sample) vcf file whose sample fields at least have the subfields SDP RBQ ABQ RD AD. Must be bgzipped and indexed for tabix")
 	parser.add_argument("-r", "--region",										help="the region in your vcf you want to run savi on")
 	parser.add_argument("-n", "--name",						default="sample",		help="the name of your sample. Default: sample")
 	parser.add_argument("-s", "--sample",										help="a comma-delimited list of the sample indices in the vcf on which to run savi (use colons to denote pairwise comparisons (e.g., 1,3:2,4:2 would be 1, 3 minus 2, and 4 minus 2)). If you leave this blank, the script will make all pairwise comparisons")
@@ -367,6 +370,7 @@ def get_arg():
 	parser.add_argument("-o", "--outputdir",					default = cwdir + "/tmp", 	help="output directory. Default: [cwd]/tmp")
 	# TO DO give these better names, reflecting what they actually are
 	parser.add_argument("--nofilter", 						action="store_true",		help="do not filter according to savi presence. Default: off (i.e., filter)")
+	parser.add_argument("--rdplusad", 						action="store_true",		help="Use AD + RD as tot depth instead of SDP. Default: off")
 	parser.add_argument("--saviconf",						default = "1e-5", 		help="the savi conf parameter. Default: 1e-5")
 	parser.add_argument("--savipresent",						default = "1e-6", 		help="the savi presence parameter. Default: 1e-6")
 	parser.add_argument("--saviprecision",						default = "0", 			help="the savi precision parameter added by Hossein. Default: 0")
@@ -423,6 +427,11 @@ def get_arg():
 		if ( not os.path.isfile(args.bin + "/" + j) ):
 			print("can't find " + args.bin + "/" + j)
 			sys.exit(1)
+
+	# set qvtargs
+	global qvtargs
+	if ( args.rdplusad ):
+		qvtargs = "--rdplusad"
 	
 	if ( args.verbose ):
 		print("[BEGIN]")

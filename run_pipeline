@@ -81,18 +81,28 @@ $0 --bam normal.bam,tumor.bam --outputdir . --index 1 --ref /my/ref.fasta
 
 Notes:
 
-This scripts assumes that Samtools, bgzip, tabix are in your PATH.
+This scripts assumes that $required_programs are in your PATH.
 Your reference should be indexed so a .fai file resides in its directory.
 Your bam files should be sorted and indexed so .bai files reside in their directories.
 
-Steps:
+SAVI Steps:
 
-  1 mpileup
+  1 bams to mpileup
   2 mpileup to multiallelic vcf
   3 make prior
   4 run savi
-  5 snpeff
+  5 annotate with SnpEff
   6 cnv and loh (ONLY WORKS FOR PAIRED NORMAL-TUMOR SAMPLES)
+
+Variant Calling Protocol:
+
+SAVI is *not* sufficient to get a reliable list of candidate mutations. 
+Before you run SAVI, you should follow these steps:
+
+  1 run Fastqc to check the quality of your fastq files
+  2 remove low quality sequences and remove adapter contamination with Cutadapt, then re-check quality
+  3 map your fastq files with bwa
+  4 run Picard to remove PCR duplicates
 
 EOF
 )
@@ -405,10 +415,18 @@ if [[ $stepstr == *4* ]]; then
 	### run_savi.py
 	mkdir -p ${outputdir}/savi/out
 
+	if [ $rdplusad == 0 ]; then
+		# use SDP as tot depth
+		saviflag="";
+	else
+		# use AD+RD as tot depth
+		saviflag="--rdplusad";
+	fi
+
 	# invert filter variable
 	keepfreqfile=$( echo $filter | awk '{x=$1; print !x}' )
 
-	${software}/run_savi.py \
+	${software}/run_savi.py $saviflag \
 	     --input ${outputdir}/${SGE_TASK_ID}.vcf.bgz \
 	     --name savi_${SGE_TASK_ID} \
 	     --sample ${compsamp} \
