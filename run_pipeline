@@ -25,6 +25,7 @@ anngenome="GRCh37.71"				# annotating reference for SnpEff (if hg19, chrM; if GR
 noncoding=0   					# use snpEff to find only all transcripts, not just protein transcripts (default: off)
 annvcf=""					# annotating vcfs in comma-delimited list (default: none)
 						# common hg19 annotating vcfs in comma-delimited list
+savi_present="1e-6"				# the SAVI presence posterior
 savi_precision=0				# the SAVI precision, from the Hossein fix
 						# required programs
 required_programs="java python samtools snpEff.jar bgzip tabix vcffilter bcftools"
@@ -72,6 +73,7 @@ Options:
   --noncoding		use snpEff to find all transcripts, not just only protein transcripts (default: off)
   --ann-vcf		comma-delimited list of vcfs with which to provide additional annotation (default: none)
   --prior		input prior (default: savi/prior_unif01)
+  --presence		the SAVI presence posterior (default: 1e-6)
   --precision		the SAVI precision
   --help		print this message and exit
 
@@ -209,6 +211,10 @@ while [ $# -gt 0 ]; do
 		shift; 
 		inputprior=$1; 
 		shift
+	elif [  "$1" == "-presence" -o "$1" == "--presence" ]; then
+		shift; 
+		savi_present=$1; 
+		shift
 	elif [  "$1" == "-precision" -o "$1" == "--precision" ]; then
 		shift; 
 		savi_precision=$1; 
@@ -251,6 +257,7 @@ echo "[read depth cutoff] "$cutoff
 echo "[annotating genome for snpEff] "$anngenome
 echo "[annotate noncoding bool] "$noncoding
 echo "[annotating list of vcfs] "$annvcf
+echo "[savi presence] "$savi_present
 echo "[savi precision] "$savi_precision
 echo "[dependencies] "$required_programs
 echo "[savi proper dependencies] "$required_savi_programs
@@ -433,6 +440,7 @@ if [[ $stepstr == *4* ]]; then
 	     --sample ${compsamp} \
 	     --prior ${priorstring} \
 	     --saviprecision ${savi_precision} \
+	     --savipresent ${savi_present} \
 	     --keepfreqfile ${keepfreqfile} \
 	     --outputdir ${outputdir}/savi/out
 
