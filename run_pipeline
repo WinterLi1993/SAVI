@@ -507,32 +507,6 @@ if [[ $stepstr == *5* ]]; then
 				# get somatic variants
 				vcffilter -f "${filterstring}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.filter.vcf
 				vcffilter -f "${filterstring_reverse}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.revfilter.vcf
-
-				# bcftools
-				# a hack
-				if [ $pv4 -eq 1 ]; then
-					echo "make regions file"
-					cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf | sed '/^#/d' | awk '{print $1":"$2"-"$2}' > ${outputdir2}/all.regions.txt
-
-					echo "generate pv4s"
-					bcfindex=1
-					for mybam in ${input_bams}; do
-						echo "pileup for bam: "${mybam}
-						# get header
-						samtools mpileup -uv -r $( head -1 ${outputdir2}/all.regions.txt ) ${pileupflag} ${mybam} > ${outputdir2}/subset${bcfindex}.mpileup.txt
-						# concatenate, while removing header
-						while read x; do samtools mpileup -uv -r $x ${pileupflag} ${mybam} | sed '/^#/d'; done < ${outputdir2}/all.regions.txt >> ${outputdir2}/subset${bcfindex}.mpileup.txt 2> /dev/null
-
-						# bcftools
-						echo "bcftools "${bcfindex}
-						cat ${outputdir2}/subset${bcfindex}.mpileup.txt | bcftools call -cAv -Ov > ${outputdir2}/bcftools.out${bcfindex}.txt
-
-						((bcfindex++))
-					done
-					# local myreport=$1;
-					# from the original pileup file, this extracts the subset of nonindel positions in $myreport
-					# cat <( cat $myreport | awk '$0 !~ /^#/ && length($4)==1 && length($5)==1{if ($1","$2 in a) {} else {print $1"\t"$2; a[$1","$2]=1}}' ) ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | sort -k1,1 -k2,2n -k3,3 | awk -F"\t" 'BEGIN{flag=0}{if (NF==2) {flag=1} else if (flag==1) {print; flag=0;}}' > ${outputdir}/tmp_mpile.${SGE_TASK_ID}.subset.txt
-				fi
 			fi
 
 			reportoptions=""
