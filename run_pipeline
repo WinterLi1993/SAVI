@@ -341,7 +341,7 @@ fi
 
 echo -e "\nStarting Pipeline ...\n"
 
-pileupflag="-B -q ${mapq} -d 100000 -L 100000 -f ${ref}"
+pileupflag="-A -B -q ${mapq} -d 100000 -L 100000 -f ${ref}"
 if [[ $stepstr == *1* ]]; then
 	echo "[STEP1] pileup"
 	### mpileup
@@ -368,19 +368,30 @@ if [[ $stepstr == *2* ]]; then
 	if [ $noindeldepth == 0 ]; then
 		# addresses a problem that samtools mpileup does not include indels in the total read count (with the exception of *s)
 		# so add indel depths to SDP
-		oscanflag="--all --header --includeindels";
+		oscanflag="--header --includeindels";
 	else
 		# don't include indel reads in total depth count
-		oscanflag="--all --header";
+		oscanflag="--header";
 	fi
 
-	cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/savi/pileup2multiallele_vcf $oscanflag \
-	    | tee ${outputdir}/${SGE_TASK_ID}.all.vcf | awk '{ if ($0 ~ /^#/ || toupper($4) != toupper($5)) {print}}' | bgzip > ${outputdir}/${SGE_TASK_ID}.vcf.bgz
+	# if make prior, need to generate all position vcf (variants and non-variants)
+	if [[ $stepstr == *3* ]]; then
+		# add all flag
+		oscanflag=${oscanflag}" --all";
 
-	cat ${outputdir}/${SGE_TASK_ID}.all.vcf | bgzip > ${outputdir}/${SGE_TASK_ID}.all.vcf.bgz
-	rm ${outputdir}/${SGE_TASK_ID}.all.vcf
+		cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/savi/pileup2multiallele_vcf $oscanflag \
+		    | tee ${outputdir}/${SGE_TASK_ID}.all.vcf | awk '{ if ($0 ~ /^#/ || toupper($4) != toupper($5)) {print}}' | bgzip > ${outputdir}/${SGE_TASK_ID}.vcf.bgz
 
-	tabix -p vcf ${outputdir}/${SGE_TASK_ID}.all.vcf.bgz
+		cat ${outputdir}/${SGE_TASK_ID}.all.vcf | bgzip > ${outputdir}/${SGE_TASK_ID}.all.vcf.bgz
+		rm ${outputdir}/${SGE_TASK_ID}.all.vcf
+
+		tabix -p vcf ${outputdir}/${SGE_TASK_ID}.all.vcf.bgz
+
+	# otherwise, just generate variants file
+	else
+		cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/savi/pileup2multiallele_vcf $oscanflag | bgzip > ${outputdir}/${SGE_TASK_ID}.vcf.bgz
+	fi
+
 	tabix -p vcf ${outputdir}/${SGE_TASK_ID}.vcf.bgz
 	echo "[date 2] "`date`
 
