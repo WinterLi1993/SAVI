@@ -19,13 +19,13 @@ input_bams=""					# input bam files
 sample_names=""					# sample names in a comma-delimited list
 num_bams=2					# number of input bams (default: 2)
 compsamp="2:1"					# the indices of sample to compare with savi (default: 2:1 - i.e., tumor vs norm)
-cutoff=5 					# min read depth cutoff
+cutoff=10 					# min read depth cutoff
 anngenome="GRCh37.71"				# annotating reference for SnpEff (if hg19, chrM; if GRCh37.71, chrMT)
 # anngenome="hg19"
 noncoding=0   					# use snpEff to find only all transcripts, not just protein transcripts (default: off)
 annvcf=""					# annotating vcfs in comma-delimited list (default: none)
 						# common hg19 annotating vcfs in comma-delimited list
-savi_present="1e-6"				# the SAVI presence posterior
+savi_present="1e-2"				# the SAVI presence posterior
 savi_precision=0				# the SAVI precision, from the Hossein fix
 						# required programs
 required_programs="java python samtools snpEff.jar bgzip tabix vcffilter bcftools"
