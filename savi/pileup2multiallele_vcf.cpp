@@ -23,6 +23,7 @@ bool allvar = false;		// bool - if true, print all lines not just variants
 bool includeindels = false;	// bool - if true, include indels in total read depth count
 bool bool_pval = false;		// bool - strand bias p val
 int qual_offset = 33; 		// quality offset
+int read_cutoff = 2; 		// min number of reads supporting variant (turn this into a flag later)
 
 // from the samtools man page (http://samtools.sourceforge.net/samtools.shtml):
 /*
@@ -286,6 +287,9 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 
 		string alt_format = "";
 
+		// boolean to only print if at least one sample has AD >= read_cutoff 
+		bool printvariant = false;
+
 		// loop thro samples to accumulate format string 
 		for(int i = 0; i < vec_count.size(); i++)	
 		{		
@@ -310,6 +314,12 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 				}
 			}
 			
+			// turn this bool true if alt reads gt or eq to read_cutoff
+			if (myval[i].f + myval[i].r >= read_cutoff) 
+			{
+				printvariant = true;
+			}
+			
 			// total depth - definition changes - depending on either mpileup def or include indels def
 			string mytotdepth;		
 			includeindels ? mytotdepth = convertInt(vec_count[i].isdp) : mytotdepth = convertInt(vec_count[i].sdp);
@@ -318,9 +328,12 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 			alt_format = alt_format + "\t" + gt + ":.:" + mytotdepth + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + convertInt(myval[i].f + myval[i].r) + ":.:" + p_val + ":" + rbq + ":" + abq +":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + convertInt(myval[i].f) + ":" + convertInt(myval[i].r);
 		}
 
-		// only print line if have a variant
-		//#CHROM  POS     ID      REF	ALT     QUAL    FILTER  INFO    FORMAT
-		cout << prependstr << "\t" << mykey << "\t" << "." << "\t" << "." << "\t" << "." << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
+		// only print line if have a variant AND printvariant is true
+		if (printvariant)
+		{
+			//#CHROM  POS     ID      REF	ALT     QUAL    FILTER  INFO    FORMAT
+			cout << prependstr << "\t" << mykey << "\t" << "." << "\t" << "." << "\t" << "." << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
+		}
 	}
 
 	// if allvar flag hi AND map empty, print also non-variants
@@ -364,6 +377,9 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 
 		string alt_format = "";
 
+		// boolean to only print if at least one sample has AD >= read_cutoff 
+		bool printvariant = false;
+
 		// loop thro samples to accumulate format string 
 		for(int i = 0; i < vec_count.size(); i++)	
 		{		
@@ -381,6 +397,11 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 				abq = convertInt(int(myval[i].q/(myval[i].f + myval[i].r)));
 			}
 
+			if (myval[i].f + myval[i].r >= read_cutoff) 
+			{
+				printvariant = true;
+			}
+
 			// total depth - definition changes - depending on either mpileup def or include indels def
 			string mytotdepth;		
 			includeindels ? mytotdepth = convertInt(vec_count[i].isdp) : mytotdepth = convertInt(vec_count[i].sdp);
@@ -389,15 +410,19 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 			alt_format = alt_format + "\t" + gt + ":.:" + mytotdepth + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + convertInt(myval[i].f + myval[i].r) + ":.:.:" + rbq + ":" + abq +":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + convertInt(myval[i].f) + ":" + convertInt(myval[i].r);
 		}
 
-		// if deletion
-		if (isdel) 
+		// only print line if have a variant AND printvariant is true
+		if (printvariant)
 		{
-			cout << prependstr << mykey << "\t" << ref << "\t" << "." << "\t" << "." << "\t" << "." << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
-		}
-		// if insertion
-		else
-		{
-			cout << prependstr << "\t" << ref << mykey << "\t" << "." << "\t" << "." << "\t" << "." << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
+			// if deletion
+			if (isdel) 
+			{
+				cout << prependstr << mykey << "\t" << ref << "\t" << "." << "\t" << "." << "\t" << "." << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
+			}
+			// if insertion
+			else
+			{
+				cout << prependstr << "\t" << ref << mykey << "\t" << "." << "\t" << "." << "\t" << "." << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
+			}
 		}
 	}
 }
