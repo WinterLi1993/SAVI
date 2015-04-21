@@ -98,9 +98,16 @@ def run_vlad_code_present(args, savidir, inplist):
 			# create a string to give to vcffilter ( vcffilter doesnt support less than or equals to <= )
 			filter_str = "( S" + i + "_P = 1 & " + "S" + i + "_PF < " + args.savipresent + " )"
 			bool_first = 0
+
+			# if hybrid, start with tot depth = RD + AD for first iteration, then turn off
+			if ( args.hybrid ): qvtargs = "--rdplusad"
+	
 		else:
 			# update string for sample in inplist
 			filter_str = filter_str + " | ( S" + i + "_P = 1 & " + "S" + i + "_PF < " + args.savipresent + " )"
+
+			# if hybrid, start with tot depth = RD + AD for first iteration, then turn off
+			if ( args.hybrid ): qvtargs = ""
 
 		# make conf files
 
@@ -186,6 +193,9 @@ def run_vlad_code_freq(args, savidir, inplist):
 	# variable to hold comma-delimited list of SGE job IDs
 	sgejobids=""
 
+	# this variable is true only for the first iteration of the list
+	bool_first = 1
+
 	# make sure the header file doesnt exist because we're going to append to it
 	cmd = "rm -f " + savidir + "/{header_addition.txt,vcfheader.txt}"
 	whichcmd(cmd, args, 0)
@@ -199,6 +209,12 @@ def run_vlad_code_freq(args, savidir, inplist):
 
 	# make freq files
 	for i in inplist:
+		if bool_first:
+			# if hybrid, start with tot depth = RD + AD for first iteration, then turn off
+			if ( args.hybrid ): qvtargs = "--rdplusad"
+		else:
+			# if hybrid, start with tot depth = RD + AD for first iteration, then turn off
+			if ( args.hybrid ): qvtargs = ""
 
 		if (args.verbose): print("\n# compute freq for sample " + i);
 		cmd = firstcmd + args.bin + "/make_qvt -1 -s " + i + " " + qvtargs + " | " + \
@@ -256,6 +272,9 @@ def run_vlad_code_compare(args, savidir, inplist):
 
 	# variable to hold comma-delimited list of SGE job IDs
 	sgejobids=""
+
+	# if hybrid, SAMP 1 tot depth = RD + AD, SAMP 2 tot depth = SDP
+	if ( args.hybrid ): qvtargs = "--hybrid"
 
 	# make sure the header file doesnt exist because we're going to append to it
 	cmd = "rm -f " + savidir + "/{header_addition.txt,vcfheader.txt}"
@@ -371,6 +390,7 @@ def get_arg():
 	# TO DO give these better names, reflecting what they actually are
 	parser.add_argument("--nofilter", 						action="store_true",		help="do not filter according to savi presence. Default: off (i.e., filter)")
 	parser.add_argument("--rdplusad", 						action="store_true",		help="Use AD + RD as tot depth instead of SDP. Default: off")
+	parser.add_argument("--hybrid", 						action="store_true",		help="Use AD + RD as tot depth for sample 1, SDP as total depth for sample 2. Default: off")
 	parser.add_argument("--saviconf",						default = "1e-5", 		help="the savi conf parameter. Default: 1e-5")
 	parser.add_argument("--savipresent",						default = "1e-6", 		help="the savi presence parameter. Default: 1e-6")
 	parser.add_argument("--saviprecision",						default = "0", 			help="the savi precision parameter added by Hossein. Default: 0")
@@ -432,7 +452,7 @@ def get_arg():
 	global qvtargs
 	if ( args.rdplusad ):
 		qvtargs = "--rdplusad"
-	
+
 	if ( args.verbose ):
 		print("[BEGIN]")
 		print("Arguments: "),
