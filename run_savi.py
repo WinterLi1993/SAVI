@@ -72,6 +72,9 @@ def run_setup(args):
 def run_vlad_code_present(args, savidir, inplist):
 	"""Run Vladimir's savi computations to check for presence and filter based on it"""
 
+	# declare as global or else Python will treat as a local variable
+	global qvtargs
+
 	# variable to hold comma-delimited list of SGE job IDs
 	sgejobids=""
 
@@ -115,7 +118,7 @@ def run_vlad_code_present(args, savidir, inplist):
 		# cat testout/sample_2_1.1p | ../savi/savi_poster -p testout/prior | ../savi/savi_conf -z | cut -f4- > testout/savi/conf_2.txt
 		# cat testout/sample_3_1.1p | ../savi/savi_poster -p testout/prior | ../savi/savi_conf -z | cut -f4- > testout/savi/conf_3.txt
 		# cat testout/sample_4_1.1p | ../savi/savi_poster -p testout/prior | ../savi/savi_conf -z | cut -f4- > testout/savi/conf_4.txt
-			
+
 		if (args.verbose): print("\n# make a presence call for sample " + i);
 		cmd = prependcmd + args.bin + "/make_qvt -1 -s " + i  + " " + qvtargs + " | " + \
 		args.bin + "/savi_poster -p " + prior_dict[i] + " | " + \
@@ -190,6 +193,9 @@ def run_vlad_code_present(args, savidir, inplist):
 def run_vlad_code_freq(args, savidir, inplist):
 	"""Run Vladimir's savi computations to get freq"""
 
+	# declare as global or else Python will treat as a local variable
+	global qvtargs
+
 	# variable to hold comma-delimited list of SGE job IDs
 	sgejobids=""
 
@@ -212,6 +218,7 @@ def run_vlad_code_freq(args, savidir, inplist):
 		if bool_first:
 			# if hybrid, start with tot depth = RD + AD for first iteration, then turn off
 			if ( args.hybrid ): qvtargs = "--rdplusad"
+			bool_first = 0
 		else:
 			# if hybrid, start with tot depth = RD + AD for first iteration, then turn off
 			if ( args.hybrid ): qvtargs = ""
@@ -269,6 +276,9 @@ def run_vlad_code_freq(args, savidir, inplist):
 
 def run_vlad_code_compare(args, savidir, inplist):
 	"""Run Vladimir's savi computations to compare samples"""
+
+	# declare as global or else Python will treat as a local variable
+	global qvtargs
 
 	# variable to hold comma-delimited list of SGE job IDs
 	sgejobids=""
