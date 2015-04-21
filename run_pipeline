@@ -9,6 +9,7 @@ mypartition=""					# user specified partition (default NULL)
 pv4=0						# bool to turn on bcftools to compute pv4 (default: no)
 noindeldepth=0					# bool which, if on, doesnt include include indel depth in SDP (default: no) (note: asteriks in mpileup are included irrespective of this flag)
 rdplusad=0					# bool which, if on, uses RD+AD rather than SDP for total depth (default: no)
+hybrid=0					# bool which, if on, uses RD+AD for first sample (normal) and SDP for total depth for all other samples (default: no)
 debug=0						# bool to turn on debugging (default: no)
 cleanup=1					# bool to turn on cleanup (default: yes)
 filter=1					# bool to do SAVI filter (default: yes)
@@ -67,6 +68,7 @@ Options:
   --noindeldepth	do not include include indel reads in total depth count (SDP) (default: off) 
   			(note: asteriks in mpileup are included irrespective of this flag)
   --rdplusad		use reference-agreeing reads plus alternate-calling reads (RD+AD) rather than total depth (SDP) as input to savi (default: off)
+  --hybrid		as input to savi, use reference-agreeing reads plus alternate-calling reads (RD+AD) for first sample (normal) and SDP for other samples (default: off)
   			(note: this flag changes read depths on positions where there are multiallelic variants)
   --debug		echo commands (default: off)
   --nofilter		do not use SAVI comparison filter (default: off) (you should use this option if NOT doing comparisons)
@@ -189,6 +191,9 @@ while [ $# -gt 0 ]; do
 	elif [  "$1" == "-rdplusad" -o "$1" == "--rdplusad" ]; then
 		shift; 
 		rdplusad=1;
+	elif [  "$1" == "-hybrid" -o "$1" == "--hybrid" ]; then
+		shift; 
+		hybrid=1;
 	elif [  "$1" == "-noindeldepth" -o "$1" == "--noindeldepth" ]; then
 		shift; 
 		noindeldepth=1;
@@ -251,6 +256,7 @@ echo "[pv4 bool] "$pv4
 echo "[debug bool] "$debug
 echo "[no indel depth bool] "$noindeldepth
 echo "[RD+AD bool] "$rdplusad
+echo "[hybrid bool] "$hybrid
 echo "[filter] "$filter
 echo "[mapq qual threshold for samtools mpileup] "$mapq
 echo "[minimum alt depth (AD) to print variant] "$minad
@@ -441,12 +447,15 @@ if [[ $stepstr == *4* ]]; then
 	### run_savi.py
 	mkdir -p ${outputdir}/savi/out
 
-	if [ $rdplusad == 0 ]; then
-		# use SDP as tot depth
-		saviflag="";
-	else
+	if [ $rdplusad == 1 ]; then
 		# use AD+RD as tot depth
 		saviflag="--rdplusad";
+	elif [ $hybrid == 1 ]; then
+		# use hybrid mode
+		saviflag="--hybrid";
+	else
+		# use SDP as tot depth
+		saviflag="";
 	fi
 
 	# invert filter variable
