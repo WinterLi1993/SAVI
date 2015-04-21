@@ -13,6 +13,7 @@ debug=0						# bool to turn on debugging (default: no)
 cleanup=1					# bool to turn on cleanup (default: yes)
 filter=1					# bool to do SAVI filter (default: yes)
 mapq=10						# pileup flag: skip alignments with mapQ less than (default: 10)
+minad=2						# pileup2multiallele_vcf flag: min alt depth (AD) to print variant (default: 2)
 stepstr=1245					# what steps to run (default: 1,2,4,5 - don't generate prior)
 software=$( dirname $( readlink -m $0 ) )	# directory where to look for scripts
 input_bams=""					# input bam files
@@ -59,6 +60,7 @@ Options:
   --steps		steps to run (default: 1,2,3,4,5,6 (i.e., all except cnv))
   --memory		the memory for the Java virtual machine in gigabytes (default: 6)
   --mindepth		the minimum read depth required in at least one sample - positions without this wont appear in pileup file (default: 5)
+  --minad		min alt depth (AD) in at least one sample to output variant (default: 2)
   --mapqual		pileup flag: skip alignments with mapQ less than this (default: 10)
   --noclean		do not delete tmp intermediate files (default: off)
   --pv4			run bcftools to compute PV4 (default: off)
@@ -162,6 +164,10 @@ while [ $# -gt 0 ]; do
 		shift; 
 		cutoff=$1;
 		shift
+	elif [  "$1" == "-minad" -o "$1" == "--minad" ]; then
+		shift; 
+		minad=$1;
+		shift
 	elif [  "$1" == "-mapqual" -o "$1" == "--mapqual" ]; then
 		shift; 
 		mapq=$1;
@@ -247,6 +253,7 @@ echo "[no indel depth bool] "$noindeldepth
 echo "[RD+AD bool] "$rdplusad
 echo "[filter] "$filter
 echo "[mapq qual threshold for samtools mpileup] "$mapq
+echo "[minimum alt depth (AD) to print variant] "$minad
 echo "[savi steps to run] "$stepstr
 echo "[software directory] "$software
 echo "[input bams] "$input_bams
@@ -368,10 +375,10 @@ if [[ $stepstr == *2* ]]; then
 	if [ $noindeldepth == 0 ]; then
 		# addresses a problem that samtools mpileup does not include indels in the total read count (with the exception of *s)
 		# so add indel depths to SDP
-		oscanflag="--header --includeindels";
+		oscanflag="--cutoff ${minad} --header --includeindels";
 	else
 		# don't include indel reads in total depth count
-		oscanflag="--header";
+		oscanflag="--cutoff ${minad} --header";
 	fi
 
 	# if make prior, need to generate all position vcf (variants and non-variants)
