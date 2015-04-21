@@ -35,6 +35,7 @@ preprocessor directives
 
 // global variables
 bool rdplusad = false;		// use RD+AD as total depth, not SDP
+bool hybrid = false;		// use RD+AD as total depth for sample 1, SDP as total depth for sample 2
 
 // http://stackoverflow.com/questions/236129/how-to-split-a-string-in-c
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems)
@@ -278,7 +279,7 @@ void read_vcf(char *s, bool leadingone, int samplenum_1, string &samplestr, bool
 				// total depth at the position
 				int mytot;
 
-				if ( rdplusad ) 
+				if ( rdplusad || hybrid ) 
 				{
 					// if rdplusad, use mytot = RD + AD
 					mytot = atoi(vec_s1_field[index_ref].c_str()) + atoi(vec_s1_field[index_var].c_str());
@@ -384,7 +385,7 @@ void make1p(int argc, char **argv)
 	int samplenum = 1;		// index of the sample for which to produce q v t 
 	string samplestr = "";		// comma-delimited list of sample indices (if more than one)
 
-	string myhelp = "Make the prior files for savi\nTake a vcf input and produce a file with columns: quality, variant depth, total depth\nNOTE: the sub-fields of the FORMAT field of the vcf file MUST BE THE SAME throughout the file\n\nFlags:\n -1: print a column of leading ones\n -f,--vcf: vcf file (if you leave this flag off, the program expects input piped from std:in)\n -s,--sample: sample index (e.g., 1)\n -2s,--2sample: indices of two samples in a comma-delimited list (e.g., 2,3)\n -h,--help: help\n -rdplusad,--rdplusad: use reference agreeing reads plus variant calling reads (RD+AD) for the total depth, rather than SDP\n -v,--verbose: verbose mode";
+	string myhelp = "Make the prior files for savi\nTake a vcf input and produce a file with columns: quality, variant depth, total depth\nNOTE: the sub-fields of the FORMAT field of the vcf file MUST BE THE SAME throughout the file\n\nFlags:\n -1: print a column of leading ones\n -f,--vcf: vcf file (if you leave this flag off, the program expects input piped from std:in)\n -s,--sample: sample index (e.g., 1)\n -2s,--2sample: indices of two samples in a comma-delimited list (e.g., 2,3)\n -h,--help: help\n -rdplusad,--rdplusad: use reference agreeing reads plus variant calling reads (RD+AD) for the total depth, rather than SDP\n -hybrid,--hybrid: if 2sample flag, use reference agreeing reads plus variant calling reads (RD+AD) for the total depth in FIRST sample and use SDP as total depth in SECOND sample; if not, this flag is identical to --rdplusad\n -v,--verbose: verbose mode\n\nUsage: To use, simply pipe your vcf file into this program. E.g.,\n cat variants.vcf | make_qvt -1";
 
 	if (argc == 1)
 	{
@@ -434,6 +435,12 @@ void make1p(int argc, char **argv)
 			// use RD + AD, not SDP, as total depth 
 			i++;
 			rdplusad = true;
+		}
+		else if (strcmp(argv[i],"-hybrid") == 0 || strcmp(argv[i],"--hybrid") == 0)
+		{
+			// use RD + AD as tot depth for first sample , and SDP as total depth for second
+			i++;
+			hybrid = true;
 		}
 		else if (strcmp(argv[i],"-v") == 0 || strcmp(argv[i],"--verbose") == 0)
 		{
