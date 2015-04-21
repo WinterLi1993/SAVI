@@ -832,7 +832,7 @@ void pileup2vcf(int argc, char **argv)
 	bool bool_header = false;	// bool header
 	string sample_names = "";	// string for the sample names
 	char* myfile;			// vcf file (if not pipe)
-	string myhelp = "Convert pileup format to vcf format, treating multi-allelic variants properly\n\nFlags:\n -h,--help: help\n -v,--verbose: verbose mode\n -q,--quality: quality offset (default: 33)\n --header: print vcf-double # lines\n -s, --samples: a comma-delimited list of sample names\n -a, --all: print non-variant lines as well as variants\n -p, --pval: print the p-value for strand bias\n\nUsage:\n To use, simply pipe your pileup file into this program. E.g.,\n cat mpileup.txt | pileup2multiallele_vcf";
+	string myhelp = "Convert pileup format to vcf format, treating multi-allelic variants properly\n\nFlags:\n -h,--help: help\n -v,--verbose: verbose mode\n -c,--cutoff: min alt read depth (AD) to print variant (default: 2)\n -q,--quality: quality offset (default: 33)\n --header: print vcf-double # lines\n -s, --samples: a comma-delimited list of sample names\n -a, --all: print non-variant lines as well as variants\n -p, --pval: print the p-value for strand bias\n\nUsage:\n To use, simply pipe your pileup file into this program. E.g.,\n cat mpileup.txt | pileup2multiallele_vcf";
 
 	/*
 	if (argc == 1)
@@ -876,6 +876,12 @@ void pileup2vcf(int argc, char **argv)
 			// verbose
 			includeindels = true;
 			i++;
+		}
+		else if (strcmp(argv[i],"-c") == 0 || strcmp(argv[i],"--cutoff") == 0)
+		{
+			// min alt read depth (AD) to display variant 
+			read_cutoff = atoi(argv[i+1]);
+			i=i+2;
 		}
 		else if (strcmp(argv[i],"-q") == 0 || strcmp(argv[i],"--quality") == 0)
 		{
