@@ -22,8 +22,8 @@ sample_names=""					# sample names in a comma-delimited list
 num_bams=2					# number of input bams (default: 2)
 compsamp="2:1"					# the indices of sample to compare with savi (default: 2:1 - i.e., tumor vs norm)
 cutoff=10 					# min read depth cutoff
-anngenome="GRCh37.71"				# annotating reference for SnpEff (if hg19, chrM; if GRCh37.71, chrMT)
-# anngenome="hg19"
+# anngenome="GRCh37.71"				# annotating reference for SnpEff (if hg19, chrM; if GRCh37.71, chrMT)
+anngenome="hg19"
 noncoding=0   					# use snpEff to find only all transcripts, not just protein transcripts (default: off)
 annvcf=""					# annotating vcfs in comma-delimited list (default: none)
 						# common hg19 annotating vcfs in comma-delimited list
@@ -73,7 +73,7 @@ Options:
   --debug		echo commands (default: off)
   --nofilter		do not use SAVI comparison filter (default: off) (you should use this option if NOT doing comparisons)
   --scripts		location of scripts dir (directory where this script resides - use this option only if qsub-ing)
-  --ann-genome		name of the SnpEff genome with which to annotate (default: GRCh37.71)
+  --ann-genome		name of the SnpEff genome with which to annotate (default: hg19)
   --noncoding		use snpEff to find all transcripts, not just only protein transcripts (default: off)
   --ann-vcf		comma-delimited list of vcfs with which to provide additional annotation (default: none)
   --prior		input prior (default: savi/prior_unif01)
@@ -324,6 +324,11 @@ if [ $debug -eq 1 ]; then
 	set -eux
 fi
 
+if [ $myregion == "MT" -o $myregion == "chrMT" ]; then
+	anngenome="GRCh37.71"
+	echo "[alert] SnpEff annotating genome changed to "${anngenome}
+fi
+
 # if region set 
 if [ ! -z "${myregion}" ]; then
 	regionflag="-r ${myregion}";
@@ -531,6 +536,17 @@ if [[ $stepstr == *5* ]]; then
 		# if final iteration of loop, convert from vcf to human readable tab-delimited report
 		if [ $myindex -eq $num_vcfs ]; then
 
+			# get useful variants and variants in the coding region. The idea is to capture these:
+			# inframe_deletion *inframe_insertion frameshift_variant* initiator_codon_variant missense_variant* synonymous_variant*
+			# splice_acceptor* splice_donor* splice_region* start_lost* start_gained* stop_gained* stop_lost* stop_retained_variant*
+			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf | awk -F"\t" '$0 ~ /^#/ || $8 ~ /inframe|frameshift|synonymous_variant|missense_variant|splice|start|stop/' > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf
+
+			# if sample names given, use them
+			reportoptions=""
+			if [ -z $sample_names ]; then 
+				reportoptions="--samples $sample_names"
+			fi
+
 			# if savi comparisons
 			if [ $filter -eq 1 ]; then 
 				# make a string for the vcffilter - e.g., if $compsamp is 2:1,3:1,5 then $filterstring will be PD21_L > 0 | PD31_L > 0
@@ -540,20 +556,16 @@ if [[ $stepstr == *5* ]]; then
 				echo "[filterstring] $filterstring"
 				echo "[reverse filterstring] $filterstring_reverse"
 				# get somatic variants
-				vcffilter -f "${filterstring}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.filter.vcf
-				vcffilter -f "${filterstring_reverse}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.revfilter.vcf
-			fi
+				vcffilter -f "${filterstring}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.filter.vcf
+				vcffilter -f "${filterstring_reverse}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.revfilter.vcf
 
-			reportoptions=""
-			# if sample names given, use them
-			if [ -z $sample_names ]; then 
-				reportoptions="--samples $sample_names"
+				# turn vcf into human readable, tab delimited report
+				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.filter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.filter.txt
+				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.revfilter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.revfilter.txt
 			fi
 
 			# turn vcf into human readable, tab delimited report
-			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.all.txt
-			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.filter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.filter.txt
-			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.revfilter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.revfilter.txt
+			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.txt
 
 		fi
 
