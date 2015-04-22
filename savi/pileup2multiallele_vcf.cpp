@@ -23,7 +23,7 @@ bool allvar = false;		// bool - if true, print all lines not just variants
 bool includeindels = false;	// bool - if true, include indels in total read depth count
 bool bool_pval = false;		// bool - strand bias p val
 int qual_offset = 33; 		// quality offset
-int read_cutoff = 2; 		// min number of reads supporting variant (turn this into a flag later)
+int read_cutoff = 0; 		// min number of reads supporting variant (turn this into a flag later)
 
 // from the samtools man page (http://samtools.sourceforge.net/samtools.shtml):
 /*
@@ -275,7 +275,7 @@ void increment_indel(std::map< string,vector<triple> > &map_indel, string myinde
 }
 
 // print vcf for mismatches
-void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,vector<triple> > &map_mis, string ref)
+void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,vector<triple> > &map_mis, string ref, int normal_AD_per_position)
 {	
 	// loop over mismatches
 	for (std::map< string,vector<triple> >::iterator iter = map_mis.begin(); iter != map_mis.end(); ++iter)
@@ -286,6 +286,10 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 		vector<triple> myval = iter->second;
 
 		string alt_format = "";
+		// our INFO field
+		string info_field = "";
+		// "tumor" freq
+		int tumor_freq = 0;
 
 		// boolean to only print if at least one sample has AD >= read_cutoff 
 		bool printvariant = false;
@@ -321,18 +325,37 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 			}
 			
 			// total depth - definition changes - depending on either mpileup def or include indels def
-			string mytotdepth;		
-			includeindels ? mytotdepth = convertInt(vec_count[i].isdp) : mytotdepth = convertInt(vec_count[i].sdp);
+			int mytotdepth;		
+			includeindels ? mytotdepth = vec_count[i].isdp : mytotdepth = vec_count[i].sdp;
+
+			// set INFO field
+			// if 0th sample (i.e., "normal")
+			if (i==0)
+			{
+				// Total sample 1 AD per postion
+				info_field="S1ADPP=" + convertInt(normal_AD_per_position) + ";S1SDP=" + convertInt(mytotdepth) + ";S1AD=" + convertInt(myval[i].f + myval[i].r);
+			}
+			// find max AD/SPD
+			else
+			{
+				if ( 100*(myval[i].f + myval[i].r)/mytotdepth > tumor_freq )
+				{
+					tumor_freq = 100*(myval[i].f + myval[i].r)/mytotdepth;
+				}
+			}
 
 			// GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR
-			alt_format = alt_format + "\t" + gt + ":.:" + mytotdepth + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + convertInt(myval[i].f + myval[i].r) + ":.:" + p_val + ":" + rbq + ":" + abq +":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + convertInt(myval[i].f) + ":" + convertInt(myval[i].r);
-		}
+			alt_format = alt_format + "\t" + gt + ":.:" + convertInt(mytotdepth) + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + convertInt(myval[i].f + myval[i].r) + ":.:" + p_val + ":" + rbq + ":" + abq +":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + convertInt(myval[i].f) + ":" + convertInt(myval[i].r);
+		} // loop thro samples
+
+		// append max to INFO field 
+		info_field += ";MAXTFREQ=" + convertInt(tumor_freq) + ";";
 
 		// only print line if have a variant AND printvariant is true
 		if (printvariant)
 		{
 			//#CHROM  POS     ID      REF	ALT     QUAL    FILTER  INFO    FORMAT
-			cout << prependstr << "\t" << mykey << "\t" << "." << "\t" << "." << "\t" << "." << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
+			cout << prependstr << "\t" << mykey << "\t" << "." << "\t" << "." << "\t" << info_field << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
 		}
 	}
 
@@ -365,7 +388,7 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 }
 
 // print vcf (for indels)
-void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< string,vector<triple> > &map_indel, bool isdel, string ref)
+void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< string,vector<triple> > &map_indel, bool isdel, string ref, int normal_AD_per_position)
 {	
 	// loop over indels
 	for (std::map< string,vector<triple> >::iterator iter = map_indel.begin(); iter != map_indel.end(); ++iter)
@@ -376,6 +399,10 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 		vector<triple> myval = iter->second;
 
 		string alt_format = "";
+		// our INFO field
+		string info_field = "";
+		// "tumor" freq
+		int tumor_freq = 0;
 
 		// boolean to only print if at least one sample has AD >= read_cutoff 
 		bool printvariant = false;
@@ -403,12 +430,31 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 			}
 
 			// total depth - definition changes - depending on either mpileup def or include indels def
-			string mytotdepth;		
-			includeindels ? mytotdepth = convertInt(vec_count[i].isdp) : mytotdepth = convertInt(vec_count[i].sdp);
+			int mytotdepth;		
+			includeindels ? mytotdepth = vec_count[i].isdp : mytotdepth = vec_count[i].sdp;
+
+			// set INFO field
+			// if 0th sample (i.e., "normal")
+			if (i==0)
+			{
+				// Total sample 1 AD per postion
+				info_field="S1ADPP=" + convertInt(normal_AD_per_position) + ";S1SDP=" + convertInt(mytotdepth) + ";S1AD=" + convertInt(myval[i].f + myval[i].r);
+			}
+			// find max AD/SPD
+			else
+			{
+				if ( 100*(myval[i].f + myval[i].r)/mytotdepth > tumor_freq )
+				{
+					tumor_freq = 100*(myval[i].f + myval[i].r)/mytotdepth;
+				}
+			}
 
 			// GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR
-			alt_format = alt_format + "\t" + gt + ":.:" + mytotdepth + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + convertInt(myval[i].f + myval[i].r) + ":.:.:" + rbq + ":" + abq +":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + convertInt(myval[i].f) + ":" + convertInt(myval[i].r);
-		}
+			alt_format = alt_format + "\t" + gt + ":.:" + convertInt(mytotdepth) + ":.:" + convertInt(vec_count[i].rdf + vec_count[i].rdr) + ":" + convertInt(myval[i].f + myval[i].r) + ":.:.:" + rbq + ":" + abq +":" + convertInt(vec_count[i].rdf) + ":" + convertInt(vec_count[i].rdr)  + ":" + convertInt(myval[i].f) + ":" + convertInt(myval[i].r);
+		} // loop thro samples
+
+		// append max to INFO field 
+		info_field += ";MAXTFREQ=" + convertInt(tumor_freq) + ";";
 
 		// only print line if have a variant AND printvariant is true
 		if (printvariant)
@@ -416,12 +462,12 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 			// if deletion
 			if (isdel) 
 			{
-				cout << prependstr << mykey << "\t" << ref << "\t" << "." << "\t" << "." << "\t" << "." << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
+				cout << prependstr << mykey << "\t" << ref << "\t" << "." << "\t" << "." << "\t" << info_field << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
 			}
 			// if insertion
 			else
 			{
-				cout << prependstr << "\t" << ref << mykey << "\t" << "." << "\t" << "." << "\t" << "." << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
+				cout << prependstr << "\t" << ref << mykey << "\t" << "." << "\t" << "." << "\t" << info_field << "\t" << "GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR" << alt_format << endl; 
 			}
 		}
 	}
@@ -460,6 +506,9 @@ void read_pileup(char *s, string sample_names)
 		}
 
 		if (isfirstiteration) cout << header; 
+
+		// variable for total alt read depth (AD) of first sample, which we'll assume is "normal" (i.e., "not tumor")
+		int normal_AD_per_position = 0;
 
 		// split line on tabs and get fields
 		vec_line = split(line, '\t');
@@ -658,6 +707,9 @@ void read_pileup(char *s, string sample_names)
 					from the reference. The deleted bases will be presented as ‘*’ in the following lines.
 					*/
 					vec_count[i].isdp += 1;
+					
+					// if 0th sample (i.e., "normal"), increment total normal AD
+					if (i==0) normal_AD_per_position += 1;
 				}
 				else if (bases[k] == '$')
 				{
@@ -696,12 +748,18 @@ void read_pileup(char *s, string sample_names)
 					// increment real total reads, isdp
 					vec_count[i].isdp += 1;
 
+					// if 0th sample (i.e., "normal"), increment total normal AD
+					if (i==0) normal_AD_per_position += 1;
+
 					flag_indel = 1;
 				}
 				else if (bases[k] == '-')
 				{
 					// increment real total reads, isdp
 					vec_count[i].isdp += 1;
+
+					// if 0th sample (i.e., "normal"), increment total normal AD
+					if (i==0) normal_AD_per_position += 1;
 
 					flag_indel = -1;
 				}
@@ -710,6 +768,9 @@ void read_pileup(char *s, string sample_names)
 				{
 					// increment real total reads, isdp
 					vec_count[i].isdp += 1;
+
+					// if 0th sample (i.e., "normal"), increment total normal AD
+					if (i==0) normal_AD_per_position += 1;
 
 					// base on reverse strand
 					bool is_reverse = true; 
@@ -811,9 +872,9 @@ void read_pileup(char *s, string sample_names)
 			isfirstiteration = 0;
 		}
 
-		print_vcf(prependstr, vec_count, map_mis, ref);			// print mismatches
-		print_indel_vcf(prependstr, vec_count, map_in, 0, ref);		// print insertions
-		print_indel_vcf(prependstr, vec_count, map_del, 1, ref);	// print deletions
+		print_vcf(prependstr, vec_count, map_mis, ref, normal_AD_per_position);			// print mismatches
+		print_indel_vcf(prependstr, vec_count, map_in, 0, ref, normal_AD_per_position);		// print insertions
+		print_indel_vcf(prependstr, vec_count, map_del, 1, ref, normal_AD_per_position);	// print deletions
 		
 		// clear variables
 		vec_count.clear();
@@ -832,7 +893,7 @@ void pileup2vcf(int argc, char **argv)
 	bool bool_header = false;	// bool header
 	string sample_names = "";	// string for the sample names
 	char* myfile;			// vcf file (if not pipe)
-	string myhelp = "Convert pileup format to vcf format, treating multi-allelic variants properly\n\nFlags:\n -h,--help: help\n -v,--verbose: verbose mode\n -c,--cutoff: min alt read depth (AD) to print variant (default: 2)\n -q,--quality: quality offset (default: 33)\n --header: print vcf-double # lines\n -s, --samples: a comma-delimited list of sample names\n -a, --all: print non-variant lines as well as variants\n -p, --pval: print the p-value for strand bias\n\nUsage:\n To use, simply pipe your pileup file into this program. E.g.,\n cat mpileup.txt | pileup2multiallele_vcf";
+	string myhelp = "Convert pileup format to vcf format, treating multi-allelic variants properly\n\nFlags:\n -h,--help: help\n -v,--verbose: verbose mode\n -c,--cutoff: min alt read depth (AD) to print variant (default: 0)\n --includeindels: include indels in total read depth count (default: false)\n -q,--quality: quality offset (default: 33)\n --header: print vcf-double # lines\n -s, --samples: a comma-delimited list of sample names\n -a, --all: print non-variant lines as well as variants\n -p, --pval: print the p-value for strand bias\n\nUsage:\n To use, simply pipe your pileup file into this program. E.g.,\n cat mpileup.txt | pileup2multiallele_vcf";
 
 	/*
 	if (argc == 1)
