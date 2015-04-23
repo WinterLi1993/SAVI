@@ -13,7 +13,7 @@ hybrid=0					# bool which, if on, uses RD+AD for first sample (normal) and SDP f
 debug=0						# bool to turn on debugging (default: no)
 cleanup=1					# bool to turn on cleanup (default: yes)
 filter=1					# bool to do SAVI filter (default: yes)
-mapq=10						# pileup flag: skip alignments with mapQ less than (default: 10)
+mapq=30						# pileup flag: skip alignments with mapQ less than (default: 10)
 minad=2						# pileup2multiallele_vcf flag: min alt depth (AD) to print variant (default: 2)
 stepstr=1245					# what steps to run (default: 1,2,4,5 - don't generate prior)
 software=$( dirname $( readlink -m $0 ) )	# directory where to look for scripts
@@ -62,7 +62,7 @@ Options:
   --memory		the memory for the Java virtual machine in gigabytes (default: 6)
   --mindepth		the minimum read depth required in at least one sample - positions without this wont appear in pileup file (default: 5)
   --minad		min alt depth (AD) in at least one sample to output variant (default: 2)
-  --mapqual		pileup flag: skip alignments with mapQ less than this (default: 10)
+  --mapqual		pileup flag: skip alignments with mapQ less than this (default: 30)
   --noclean		do not delete tmp intermediate files (default: off)
   --pv4			run bcftools to compute PV4 (default: off)
   --noindeldepth	do not include include indel reads in total depth count (SDP) (default: off) 
