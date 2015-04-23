@@ -16,6 +16,11 @@
 
 using namespace std;
 
+/*
+Oliver <oe2118@cumc.columbia.edu> 
+2014
+*/
+
 // global variables
 bool verbose = false;		// bool verbose
 bool debug = false;		// bool debug
@@ -23,7 +28,7 @@ bool allvar = false;		// bool - if true, print all lines not just variants
 bool includeindels = false;	// bool - if true, include indels in total read depth count
 bool bool_pval = false;		// bool - strand bias p val
 int qual_offset = 33; 		// quality offset
-int read_cutoff = 0; 		// min number of reads supporting variant (turn this into a flag later)
+int read_cutoff = 0; 		// min number of reads supporting variant
 
 // from the samtools man page (http://samtools.sourceforge.net/samtools.shtml):
 /*
@@ -216,6 +221,19 @@ string convertInt(int number)
 	return ss.str();	//return a string with the contents of the stream
 }
 
+// convert bool to string
+string convertBool(bool boolval)
+{
+	if (boolval)
+	{
+		return "yes";
+	}
+	else
+	{
+		return "no";
+	}
+}
+
 // convert double to string
 string convertDouble(double number)
 {
@@ -290,6 +308,8 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 		string info_field = "";
 		// "tumor" freq
 		int tumor_freq = 0;
+		// strand bias flag 
+		string strand_bias = "1";
 
 		// boolean to only print if at least one sample has AD >= read_cutoff 
 		bool printvariant = false;
@@ -342,6 +362,9 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 				{
 					tumor_freq = 100*(myval[i].f + myval[i].r)/mytotdepth;
 				}
+
+				// set strand bias flag - there's no strand bias if at least one tumor sample checks out
+				if (myval[i].f * myval[i].r > 0) strand_bias = "0";
 			}
 
 			// GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR
@@ -349,7 +372,7 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 		} // loop thro samples
 
 		// append max to INFO field 
-		info_field += ";MAXTFREQ=" + convertInt(tumor_freq) + ";";
+		info_field += ";Sgt1MAXFREQ=" + convertInt(tumor_freq) + ";Sgt1STRANDBIAS=" + strand_bias + ";";
 
 		// only print line if have a variant AND printvariant is true
 		if (printvariant)
@@ -403,6 +426,8 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 		string info_field = "";
 		// "tumor" freq
 		int tumor_freq = 0;
+		// strand bias flag 
+		string strand_bias = "1";
 
 		// boolean to only print if at least one sample has AD >= read_cutoff 
 		bool printvariant = false;
@@ -447,6 +472,9 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 				{
 					tumor_freq = 100*(myval[i].f + myval[i].r)/mytotdepth;
 				}
+
+				// set strand bias flag - there's no strand bias if at least one tumor sample checks out
+				if (myval[i].f * myval[i].r > 0) strand_bias = "0";
 			}
 
 			// GT:GQ:SDP:DP:RD:AD:FREQ:PVAL:RBQ:ABQ:RDF:RDR:ADF:ADR
@@ -454,7 +482,7 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 		} // loop thro samples
 
 		// append max to INFO field 
-		info_field += ";MAXTFREQ=" + convertInt(tumor_freq) + ";";
+		info_field += ";Sgt1MAXFREQ=" + convertInt(tumor_freq) + ";Sgt1STRANDBIAS=" + strand_bias + ";";
 
 		// only print line if have a variant AND printvariant is true
 		if (printvariant)
@@ -916,7 +944,7 @@ void pileup2vcf(int argc, char **argv)
 		}
 		else if (strcmp(argv[i],"-a") == 0 || strcmp(argv[i],"--all") == 0)
 		{
-			// debug 
+			// print all positions, not just variants 
 			allvar = true;
 			i++;
 		}
@@ -934,7 +962,7 @@ void pileup2vcf(int argc, char **argv)
 		}
 		else if (strcmp(argv[i],"--includeindels") == 0)
 		{
-			// verbose
+			// include indels
 			includeindels = true;
 			i++;
 		}
@@ -952,7 +980,7 @@ void pileup2vcf(int argc, char **argv)
 		}
 		else if (strcmp(argv[i],"-s") == 0 || strcmp(argv[i],"--samples") == 0)
 		{
-			// quality
+			// sample names 
 			sample_names = argv[i+1];
 			i=i+2;
 		}
@@ -974,8 +1002,32 @@ void pileup2vcf(int argc, char **argv)
 		}
 	}
 
-	// vcf header describe FORMAT fields
-	string header="##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">\n##FORMAT=<ID=SDP,Number=1,Type=Integer,Description=\"Raw Read Depth as reported by SAMtools\">\n##FORMAT=<ID=RD,Number=1,Type=Integer,Description=\"Depth of reference-supporting bases (reads1)\">\n##FORMAT=<ID=AD,Number=1,Type=Integer,Description=\"Depth of variant-supporting bases (reads2)\">\n##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Quality Read Depth of bases with Phred score >= 0\">\n##FORMAT=<ID=FREQ,Number=1,Type=Float,Description=\"Variant allele frequency\">\n##FORMAT=<ID=PVAL,Number=1,Type=String,Description=\"P-value from Fisher's Exact Test\">\n##FORMAT=<ID=RBQ,Number=1,Type=Integer,Description=\"Average quality of reference-supporting bases (qual1)\">\n##FORMAT=<ID=ABQ,Number=1,Type=Integer,Description=\"Average quality of variant-supporting bases (qual2)\">\n##FORMAT=<ID=RDF,Number=1,Type=Integer,Description=\"Depth of reference-supporting bases on forward strand (reads1plus)\">\n##FORMAT=<ID=RDR,Number=1,Type=Integer,Description=\"Depth of reference-supporting bases on reverse strand (reads1minus)\">\n##FORMAT=<ID=ADF,Number=1,Type=Integer,Description=\"Depth of variant-supporting bases on forward strand (reads2plus)\">\n##FORMAT=<ID=ADR,Number=1,Type=Integer,Description=\"Depth of variant-supporting bases on reverse strand (reads2minus)\">";
+	// vcf header, describes INFO and FORMAT fields, etc.
+	string header=
+		"##fileformat=VCFv4.2\n"
+		"##source=pileup2multiallele_vcf\n"
+		"##filter=min alt read depth (AD) to print variant: " + convertInt(read_cutoff) + "\n"
+		"##option=include indel reads in total depth count: " + convertBool(includeindels) + "\n"
+		"##option=print all positions, as well as variant positions: " + convertBool(allvar) + "\n"
+		"##INFO=<ID=S1ADPP,Number=1,Type=Integer,Description=\"Total AD per postion for sample 1 (i.e., alt depth across all variants at this position in sample 1)\">\n"
+		"##INFO=<ID=S1SDP,Number=1,Type=Integer,Description=\"SDP for sample 1\">\n"
+		"##INFO=<ID=S1AD,Number=1,Type=Integer,Description=\"AD for sample 1\">\n"
+		"##INFO=<ID=Sgt1MAXFREQ,Number=1,Type=Integer,Description=\"The Max AD/SDP for any sample after the first one (ignore this field if you only have one sample)\">\n"
+		"##INFO=<ID=Sgt1STRANDBIAS,Number=1,Type=Integer,Description=\"Strand bias bool - it's zero if ADF*ADR > 0 for any sample after the first one (ignore this field if you only have one sample)\">\n"
+		"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n" 
+		"##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">\n"
+		"##FORMAT=<ID=SDP,Number=1,Type=Integer,Description=\"Raw Read Depth - it will agree with Samtools mpileup if indel reads are NOT counted as contributing to total depth\">\n"
+		"##FORMAT=<ID=RD,Number=1,Type=Integer,Description=\"Depth of reference-supporting reads\">\n"
+		"##FORMAT=<ID=AD,Number=1,Type=Integer,Description=\"Depth of variant-supporting reads\">\n"
+		"##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Quality Read Depth of bases with Phred score >= 0\">\n"
+		"##FORMAT=<ID=FREQ,Number=1,Type=Float,Description=\"Variant allele frequency\">\n"
+		"##FORMAT=<ID=PVAL,Number=1,Type=String,Description=\"P-value from Fisher's Exact Test\">\n"
+		"##FORMAT=<ID=RBQ,Number=1,Type=Integer,Description=\"Average quality of reference-supporting reads\">\n"
+		"##FORMAT=<ID=ABQ,Number=1,Type=Integer,Description=\"Average quality of variant-supporting reads\">\n"
+		"##FORMAT=<ID=RDF,Number=1,Type=Integer,Description=\"Depth of reference-supporting reads on forward strand\">\n"
+		"##FORMAT=<ID=RDR,Number=1,Type=Integer,Description=\"Depth of reference-supporting reads on reverse strand\">\n"
+		"##FORMAT=<ID=ADF,Number=1,Type=Integer,Description=\"Depth of variant-supporting reads on forward strand\">\n"
+		"##FORMAT=<ID=ADR,Number=1,Type=Integer,Description=\"Depth of variant-supporting reads on reverse strand\">";
 
 	if (bool_header)
 	{
