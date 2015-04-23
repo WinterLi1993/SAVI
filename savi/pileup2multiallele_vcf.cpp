@@ -356,7 +356,7 @@ void print_vcf(string prependstr, vector<counts> &vec_count, std::map< string,ve
 				info_field="S1ADPP=" + convertInt(normal_AD_per_position) + ";S1SDP=" + convertInt(mytotdepth) + ";S1AD=" + convertInt(myval[i].f + myval[i].r);
 			}
 			// find max AD/SPD
-			else
+			else if (mytotdepth > 0) // prevent divide by zero errors
 			{
 				if ( 100*(myval[i].f + myval[i].r)/mytotdepth > tumor_freq )
 				{
@@ -466,7 +466,7 @@ void print_indel_vcf(string prependstr, vector<counts> &vec_count, std::map< str
 				info_field="S1ADPP=" + convertInt(normal_AD_per_position) + ";S1SDP=" + convertInt(mytotdepth) + ";S1AD=" + convertInt(myval[i].f + myval[i].r);
 			}
 			// find max AD/SPD
-			else
+			else if (mytotdepth > 0) // prevent divide by zero errors
 			{
 				if ( 100*(myval[i].f + myval[i].r)/mytotdepth > tumor_freq )
 				{
