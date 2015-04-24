@@ -15,6 +15,7 @@ cleanup=1					# bool to turn on cleanup (default: yes)
 filter=1					# bool to do SAVI filter (default: yes)
 mapq=30						# pileup flag: skip alignments with mapQ less than (default: 10)
 minad=2						# pileup2multiallele_vcf flag: min alt depth (AD) to print variant (default: 2)
+s1adpp=3					# filter on S1 AD PP less than this - i.e., normal alt depth per position NOT per variant
 stepstr=1245					# what steps to run (default: 1,2,4,5 - don't generate prior)
 software=$( dirname $( readlink -m $0 ) )	# directory where to look for scripts
 input_bams=""					# input bam files
@@ -63,6 +64,7 @@ Options:
   --mindepth		the minimum read depth required in at least one sample - positions without this wont appear in pileup file (default: 5)
   --minad		min alt depth (AD) in at least one sample to output variant (default: 2)
   --mapqual		pileup flag: skip alignments with mapQ less than this (default: 30)
+  --s1adpp		for filtered report, require the sample 1 (normal) alt depth per position to be less than this (default: 3) (note: this NOT S1 AD per mismatch but, rather, per position)
   --noclean		do not delete tmp intermediate files (default: off)
   --pv4			run bcftools to compute PV4 (default: off)
   --noindeldepth	do not include include indel reads in total depth count (SDP) (default: off) 
@@ -539,7 +541,13 @@ if [[ $stepstr == *5* ]]; then
 			# get useful variants and variants in the coding region. The idea is to capture these:
 			# inframe_deletion *inframe_insertion frameshift_variant* initiator_codon_variant missense_variant* synonymous_variant*
 			# splice_acceptor* splice_donor* splice_region* start_lost* start_gained* stop_gained* stop_lost* stop_retained_variant*
-			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf | awk -F"\t" '$0 ~ /^#/ || $8 ~ /inframe|frameshift|synonymous_variant|missense_variant|splice|start|stop/' > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf
+			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf | awk -F"\t" '$0 ~ /^#/ || $8 ~ /inframe|frameshift|synonymous_variant|missense_variant|splice_acceptor|splice_donor|start|stop/' > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf
+			# filtering: 
+			# S1 AD PP < cutoff so discard variants with normal alt depth above a certain threshhold
+			# discard variants with strand bias
+			# discard variants in meganormals
+			# discard variants in COMMON dbSNP
+			vcffilter -f "S1ADPP < ${s1adpp} & Sgt1STRANDBIAS = 0" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | awk '$0 ~ /^#/ || ( $0 !~ /MEGANORMAL_ID/ && $0 !~ /Meganormal186GBM/ && $0 !~ /COMMON\=1/)' > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf
 
 			# if sample names given, use them
 			reportoptions=""
@@ -566,7 +574,7 @@ if [[ $stepstr == *5* ]]; then
 
 			# turn vcf into human readable, tab delimited report
 			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.txt
-
+			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.somatic.txt
 		fi
 
 		myindex=$(($myindex + 1))
