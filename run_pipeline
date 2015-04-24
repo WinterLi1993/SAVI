@@ -564,12 +564,12 @@ if [[ $stepstr == *5* ]]; then
 				echo "[filterstring] $filterstring"
 				echo "[reverse filterstring] $filterstring_reverse"
 				# get somatic variants
-				vcffilter -f "${filterstring}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.filter.vcf
-				vcffilter -f "${filterstring_reverse}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.revfilter.vcf
+				vcffilter -f "${filterstring}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.PDfilter.vcf
+				vcffilter -f "${filterstring_reverse}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf
 
 				# turn vcf into human readable, tab delimited report
-				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.filter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.filter.txt
-				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.revfilter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.revfilter.txt
+				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.PDfilter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.somatic.PDfilter.txt
+				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.rev-PDfilter.txt
 			fi
 
 			# turn vcf into human readable, tab delimited report
