@@ -13,7 +13,7 @@ hybrid=0					# bool which, if on, uses RD+AD for first sample (normal) and SDP f
 debug=0						# bool to turn on debugging (default: no)
 cleanup=1					# bool to turn on cleanup (default: yes)
 filter=1					# bool to do SAVI filter (default: yes)
-mapq=30						# pileup flag: skip alignments with mapQ less than (default: 10)
+mapq=10						# pileup flag: skip alignments with mapQ less than (default: 10)
 minad=2						# pileup2multiallele_vcf flag: min alt depth (AD) to print variant (default: 2)
 s1adpp=3					# filter on S1 AD PP less than this - i.e., normal alt depth per position NOT per variant
 stepstr=1245					# what steps to run (default: 1,2,4,5 - don't generate prior)
@@ -28,7 +28,7 @@ anngenome="hg19"
 noncoding=0   					# use snpEff to find only all transcripts, not just protein transcripts (default: off)
 annvcf=""					# annotating vcfs in comma-delimited list (default: none)
 						# common hg19 annotating vcfs in comma-delimited list
-savi_present="1e-2"				# the SAVI presence posterior
+savi_present="1e-6"				# the SAVI presence posterior
 savi_precision=0				# the SAVI precision, from the Hossein fix
 						# required programs
 required_programs="java python samtools snpEff.jar bgzip tabix vcffilter bcftools"
