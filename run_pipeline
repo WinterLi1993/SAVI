@@ -78,7 +78,8 @@ Options:
   --ann-genome		name of the SnpEff genome with which to annotate (default: hg19)
   --noncoding		use snpEff to find all transcripts, not just only protein transcripts (default: off)
   --ann-vcf		comma-delimited list of vcfs with which to provide additional annotation (default: none)
-  --prior		input prior (default: savi/prior_unif01)
+  --buildprior		starting input prior when building the prior (default: savi/prior_unif01)
+  --prior		prior to use if step3 is not run (default: savi/prior_diploid01)
   --presence		the SAVI presence posterior (default: 1e-6)
   --precision		the SAVI precision
   --help		print this message and exit
@@ -219,6 +220,10 @@ while [ $# -gt 0 ]; do
 		shift; 
 		mypartition=$1; 
 		shift
+	elif [  "$1" == "-buildprior" -o "$1" == "--buildprior" ]; then
+		shift; 
+		buildprior=$1; 
+		shift
 	elif [  "$1" == "-prior" -o "$1" == "--prior" ]; then
 		shift; 
 		inputprior=$1; 
@@ -244,7 +249,8 @@ while [ $# -gt 0 ]; do
 done
 
 time1=$( date "+%s" )
-inputprior=${software}/savi/prior_unif01	# input prior (default: savi/prior_unif01)
+buildprior=${software}/savi/prior_unif01	# input prior for building a new prior (default: savi/prior_unif01)
+inputprior=${software}/savi/prior_diploid01	# input prior to use by default (default: savi/prior_unif01)
 
 echo "[START] "`date`
 echo "[pwd] "`pwd`
@@ -264,6 +270,8 @@ echo "[minimum alt depth (AD) to print variant] "$minad
 echo "[savi steps to run] "$stepstr
 echo "[software directory] "$software
 echo "[input bams] "$input_bams
+echo "[input prior for building prior from scratch] "$buildprior
+echo "[default input prior] "$inputprior
 echo "[sample names] "$sample_names
 echo "[number of bams] "$num_bams
 echo "[compsamp flag] "$compsamp
@@ -485,7 +493,7 @@ if [[ $stepstr == *3* ]]; then
 		${software}/make_prior.py --verbose \
 		      --name s${i} \
 		      --iteration 10 \
-		      --prior ${inputprior} \
+		      --prior ${buildprior} \
 		      --sampleindex ${i} \
 		      --outputdir ${outputdir}/savi/prior${i} \
 		      --input ${outputdir}/${SGE_TASK_ID}.all.vcf.bgz;
@@ -497,7 +505,7 @@ if [[ $stepstr == *3* ]]; then
 	echo "[date 3] "`date`;
 else
 	# if not step3, use diploid prior by default
-	priorstring=$( for i in $( echo ${compsamp} | sed 's|,|\n|g; s|:|\n|g' | sort -u ); do echo -n "${i}:${software}/savi/prior_diploid01,"; done | sed 's|,$||'; echo )
+	priorstring=$( for i in $( echo ${compsamp} | sed 's|,|\n|g; s|:|\n|g' | sort -u ); do echo -n "${i}:${inputprior},"; done | sed 's|,$||'; echo )
 fi
 
 if [[ $stepstr == *4* ]]; then
