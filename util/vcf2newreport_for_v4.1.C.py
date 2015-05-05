@@ -24,7 +24,7 @@ num_eff_fields = 12			# number of SnpEff fields delimited by "|" (change to 12 t
 emptyefflist = ['-']*num_eff_fields	# define empty eff list 
 
 # dict to map vcf, SnpEff terms to human readable terms
-d_readable = {'#CHROM':'#chromosome', 'POS':'position', 'ID':'id', 'REF':'ref', 'ALT':'alt', 'SDP':'totdepth', 'RD':'refdepth', 'AD':'altdepth', 'RBQ':'ref_ave_qual', 'ABQ':'alt_ave_qual', 'RDF':'ref_forward_depth', 'RDR':'ref_reverse_depth', 'ADF':'alt_forward_depth', 'ADR':'alt_reverse_depth', '_P':'_presence_bool', '_PF':'_presence_posterior', '_F':'_freq',  '_L':'_freq_lower_bool', '_U':'_freq_upper', 'COSMIC_NSAMP':'cosmic_number_of_samples', 'MEGANORMAL_ID':'meganormal_id', 'NMutPerID':'number_of_mutations_per_meganormal_id', 'RS':'reference_SNP_id(RS)', 'SOM_VERIFIED_COUNTS':'cbio_somatic_verified_mutation_count', 'SRC':'meganormal_186_TCGA_source', 'TOT_COUNTS':'cbio_total_mutation_count', 'dbSNPBuildID':'dbSNPBuild_for_RS', 'STRAND':'strand', 'CAF':'snp_allele_freq'}
+d_readable = {'#CHROM':'#chromosome', 'POS':'position', 'ID':'id', 'REF':'ref', 'ALT':'alt', 'SDP':'totdepth', 'RD':'refdepth', 'AD':'altdepth', 'RBQ':'ref_ave_qual', 'ABQ':'alt_ave_qual', 'RDF':'ref_forward_depth', 'RDR':'ref_reverse_depth', 'ADF':'alt_forward_depth', 'ADR':'alt_reverse_depth', '_P':'_presence_bool', '_PF':'_presence_posterior', '_F':'_freq',  '_L':'_freq_lower_bool', '_U':'_freq_upper', 'COSMIC_NSAMP':'id.cosmic	cosmic_number_of_samples', 'MEGANORMAL_ID':'meganormal_id', 'NMutPerID':'number_of_mutations_per_meganormal_id', 'RS':'reference_SNP_id(RS)', 'SOM_VERIFIED_COUNTS':'cbio_somatic_verified_mutation_count', 'SRC':'meganormal_186_TCGA_source', 'TOT_COUNTS':'cbio_total_mutation_count', 'dbSNPBuildID':'dbSNPBuild_for_RS', 'STRAND':'strand', 'CAF':'id.snp	snp_allele_freq', 'Sgt1MAXFREQ':'Sgt1_max_frequency', 'S1ADPP':'S1_alt_depth_per_position'}
 
 ### Read Arguments
 prog_description = """This script takes a vcf file as input, piped in, and converts it to a tab-delimited text file, 
@@ -89,7 +89,8 @@ for line in contents:
 		# make a human readable version:
 		# header_readable = [d_readable[j] for j in header[0:5]]
 		# header_readable = ['#chromosome', 'position', 'id', 'ref', 'alt']
-		header_readable = ['#chromosome', 'position', 'id.snp', 'id.cosmic', 'ref', 'alt']
+		# header_readable = ['#chromosome', 'position', 'id.snp', 'id.cosmic', 'ref', 'alt']
+		header_readable = ['#chromosome', 'position', 'ref', 'alt']
 
 		# get the number of samples (# cols after the FORMAT field)
 		number_samples = len(header) - 7
@@ -139,7 +140,7 @@ for line in contents:
 					else:
 						print(match5.group(2) + "-" + match5.group(3) + d_readable[match5.group(4)] + "\t"),
 
-				elif myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'CAF' or myfield == 'COSMIC_NSAMP' :
+				elif myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'CAF' or myfield == 'COSMIC_NSAMP' or myfield == 'Sgt1MAXFREQ' or myfield == 'S1ADPP':
 					if myfield in d_readable:
 						print(d_readable[myfield] + "\t"),
 					else:
@@ -179,19 +180,19 @@ for line in contents:
 		# print first part of line, up until but not including INFO field
 		# print chrom pos
 		print("\t".join(linelist[0:2]) + "\t"),
-		# get SNP portion of id
-		id_rs = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('rs')]
-		# get COSMIC portion of id
-		id_cos = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('C')]
-		# print id in two columns
-		if id_rs:
-			print(",".join(id_rs) + "\t"),
-		else:
-			print("-\t"),
-		if id_cos:
-			print(",".join(id_cos) + "\t"),
-		else:
-			print("-\t"),
+		# # get SNP portion of id
+		# id_rs = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('rs')]
+		# # get COSMIC portion of id
+		# id_cos = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('C')]
+		# # print id in two columns
+		# if id_rs:
+		# 	print(",".join(id_rs) + "\t"),
+		# else:
+		# 	print("-\t"),
+		# if id_cos:
+		# 	print(",".join(id_cos) + "\t"),
+		# else:
+		# 	print("-\t"),
 		# print ref alt 
 		print("\t".join(linelist[3:5]) + "\t"),
 
@@ -220,6 +221,10 @@ for line in contents:
 		# SRC Source List of Mutations
 
 		# if key not present, add it
+		if (not 'Sgt1MAXFREQ' in d_info): 
+			d_info['Sgt1MAXFREQ'] = "-"
+		if (not 'S1ADPP' in d_info): 
+			d_info['S1ADPP'] = "-"
 		if (not 'COSMIC_NSAMP' in d_info): 
 			d_info['COSMIC_NSAMP'] = "-"
 		# if (not 'STRAND' in d_info): 
@@ -284,7 +289,24 @@ for line in contents:
 					print("\t".join(myefflist) + "\t"),
 
 			# else if match savi fields OR any special keys described above, print
-			elif match4 or myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'CAF' or myfield == 'COSMIC_NSAMP':
+			elif match4 or myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'Sgt1MAXFREQ' or myfield == 'S1ADPP':
+				print(d_info[myfield] + "\t"),
+			elif myfield == 'CAF':
+				# get SNP portion of id
+				id_rs = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('rs')]
+				# print id in two columns
+				if id_rs:
+					print(",".join(id_rs) + "\t"),
+				else:
+					print("-\t"),
+				print(d_info[myfield] + "\t"),
+			elif myfield == 'COSMIC_NSAMP':
+				# get COSMIC portion of id
+				id_cos = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('C')]
+				if id_cos:
+					print(",".join(id_cos) + "\t"),
+				else:
+					print("-\t"),
 				print(d_info[myfield] + "\t"),
 			elif match5:
 				if (int(d_info[myfield]) < 0):
