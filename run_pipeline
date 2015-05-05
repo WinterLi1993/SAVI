@@ -606,7 +606,9 @@ if [[ $stepstr == *5* ]]; then
 			# discard variants with strand bias
 			# discard variants in meganormals
 			# discard variants in COMMON dbSNP
-			vcffilter -f "S1ADPP < ${s1adpp} & Sgt1STRANDBIAS = 0" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | awk '$0 ~ /^#/ || ( $0 !~ /MEGANORMAL_ID/ && $0 !~ /Meganormal186GBM/ && $0 !~ /COMMON\=1/)' > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf
+			# vcffilter -f "S1ADPP < ${s1adpp} & Sgt1STRANDBIAS = 0" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | awk '$0 ~ /^#/ || ( $0 !~ /MEGANORMAL_ID/ && $0 !~ /Meganormal186GBM/ && $0 !~ /COMMON\=1/)' > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf
+			# take out strand bias filter
+			vcffilter -f "S1ADPP < ${s1adpp}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | awk '$0 ~ /^#/ || ( $0 !~ /MEGANORMAL_ID/ && $0 !~ /Meganormal186GBM/ && $0 !~ /COMMON\=1/)' > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf
 
 			# if sample names given, use them
 			reportoptions=""
@@ -623,17 +625,17 @@ if [[ $stepstr == *5* ]]; then
 				echo "[filterstring] $filterstring"
 				echo "[reverse filterstring] $filterstring_reverse"
 				# get somatic variants
-				vcffilter -f "${filterstring}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.PDfilter.vcf
+				vcffilter -f "${filterstring}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.PDfilter.vcf
 				vcffilter -f "${filterstring_reverse}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf
 
 				# turn vcf into human readable, tab delimited report
-				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.PDfilter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.somatic.PDfilter.txt
-				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.rev-PDfilter.txt
+				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.somatic.PDfilter.txt
+				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.rev-PDfilter.txt
 			fi
 
 			# turn vcf into human readable, tab delimited report
-			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.txt
-			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf | ${software}/util/vcf2report_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.somatic.txt
+			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.txt
+			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.somatic.txt
 		fi
 
 		myindex=$(($myindex + 1))
