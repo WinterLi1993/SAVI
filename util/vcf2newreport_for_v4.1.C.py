@@ -7,6 +7,9 @@
 # Usage:
 # cat myfile.vcf | $0 > myfile.txt
 
+# Notes:
+# This is a bit of a mess but, for now at least, it does the job
+
 import argparse
 import sys
 import re
@@ -24,7 +27,7 @@ num_eff_fields = 12			# number of SnpEff fields delimited by "|" (change to 12 t
 emptyefflist = ['-']*num_eff_fields	# define empty eff list 
 
 # dict to map vcf, SnpEff terms to human readable terms
-d_readable = {'#CHROM':'#chromosome', 'POS':'position', 'ID':'id', 'REF':'ref', 'ALT':'alt', 'SDP':'totdepth', 'RD':'refdepth', 'AD':'altdepth', 'RBQ':'ref_ave_qual', 'ABQ':'alt_ave_qual', 'RDF':'ref_forward_depth', 'RDR':'ref_reverse_depth', 'ADF':'alt_forward_depth', 'ADR':'alt_reverse_depth', '_P':'_presence_bool', '_PF':'_presence_posterior', '_F':'_freq',  '_L':'_freq_lower_bool', '_U':'_freq_upper', 'COSMIC_NSAMP':'id.cosmic	cosmic_number_of_samples', 'MEGANORMAL_ID':'meganormal_id', 'NMutPerID':'number_of_mutations_per_meganormal_id', 'RS':'reference_SNP_id(RS)', 'SOM_VERIFIED_COUNTS':'cbio_somatic_verified_mutation_count', 'SRC':'meganormal_186_TCGA_source', 'TOT_COUNTS':'cbio_total_mutation_count', 'dbSNPBuildID':'dbSNPBuild_for_RS', 'STRAND':'strand', 'CAF':'id.snp	snp_allele_freq', 'Sgt1MAXFREQ':'Sgt1_max_frequency', 'S1ADPP':'S1_alt_depth_per_position'}
+d_readable = {'#CHROM':'#chromosome', 'POS':'position', 'ID':'id', 'REF':'ref', 'ALT':'alt', 'SDP':'totdepth', 'RD':'refdepth', 'AD':'altdepth', 'RBQ':'ref_ave_qual', 'ABQ':'alt_ave_qual', 'RDF':'ref_forward_depth', 'RDR':'ref_reverse_depth', 'ADF':'alt_forward_depth', 'ADR':'alt_reverse_depth', '_P':'_presence_bool', '_PF':'_presence_posterior', '_F':'_freq',  '_L':'_savi_change_stat', '_U':'_freq_upper', 'COSMIC_NSAMP':'cosmic_n.samples-gene', 'MEGANORMAL_ID':'meganormal_id', 'NMutPerID':'n.mutations_per_meganormal_id', 'RS':'reference_SNP_id(RS)', 'SOM_VERIFIED_COUNTS':'cbio_somatic_verified_mutation_count', 'SRC':'meganormal_186_TCGA_source', 'TOT_COUNTS':'cbio_total_mutation_count', 'dbSNPBuildID':'dbSNPBuild_for_RS', 'STRAND':'strand', 'CNT':'id.cosmic	cosmic_n.samples-mut', 'CAF':'id.snp	snp_allele_freq', 'Sgt1MAXFREQ':'Sgt1_max_frequency', 'S1ADPP':'S1_alt_depth_per_position'}
 
 ### Read Arguments
 prog_description = """This script takes a vcf file as input, piped in, and converts it to a tab-delimited text file, 
@@ -137,7 +140,7 @@ for line in contents:
 					else:
 						print(match5.group(2) + "-" + match5.group(3) + d_readable[match5.group(4)] + "\t"),
 
-				elif myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'CAF' or myfield == 'COSMIC_NSAMP' or myfield == 'Sgt1MAXFREQ' or myfield == 'S1ADPP':
+				elif myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'CNT' or myfield == 'CAF' or myfield == 'COSMIC_NSAMP' or myfield == 'Sgt1MAXFREQ' or myfield == 'S1ADPP':
 					if myfield in d_readable:
 						print(d_readable[myfield] + "\t"),
 					else:
@@ -190,19 +193,12 @@ for line in contents:
 			d_info['EFF'] = "-"
 
 		## Keep these special keys in the INFO field:
+		# Sgs1MAXFREQ
+		# S1ADPP
 		# COSMIC_NSAMP How many samples have this mutation
-		# STRAND Gene strand
-		# GENE Gene name
-		# AA Peptide annotation
-		# CDS CDS annotation
-		# NMutPerID Number of mutations in the sample given by MEGANORMAL_ID
-		# MEGANORMAL_ID disease|date|investigator|ID
-		# IMPACT Impact of Mutation
 		# TOT_COUNTS Total Mutation Count
 		# SOM_VERIFIED_COUNTS Somatic Verified Mutation Count
-		# GERM_COUNTS Germline Mutation Count
-		# SOM_COUNTS Somatic Mutation Count
-		# SRC Source List of Mutations
+		# CAF
 
 		# if key not present, add it
 		if (not 'Sgt1MAXFREQ' in d_info): 
@@ -211,34 +207,26 @@ for line in contents:
 			d_info['S1ADPP'] = "-"
 		if (not 'COSMIC_NSAMP' in d_info): 
 			d_info['COSMIC_NSAMP'] = "-"
-		# if (not 'STRAND' in d_info): 
-		#	d_info['STRAND'] = "-"
-		# if (not 'AA' in d_info): 
-		# 	d_info['AA'] = "-"
-		# if (not 'CDS' in d_info): 
-		# 	d_info['CDS'] = "-"
-		# if (not 'NMutPerID' in d_info): 
-		# 	d_info['NMutPerID'] = "-"
-		# if (not 'MEGANORMAL_ID' in d_info): 
-		# 	d_info['MEGANORMAL_ID'] = "-"
 		if (not 'TOT_COUNTS' in d_info): 
 			d_info['TOT_COUNTS'] = "-"
 		if (not 'SOM_VERIFIED_COUNTS' in d_info): 
 			d_info['SOM_VERIFIED_COUNTS'] = "-"
 		if (not 'CAF' in d_info): 
 			d_info['CAF'] = "-"
-		# if (not 'SRC' in d_info): 
-		# 	d_info['SRC'] = "-"
-		# if (not 'RS' in d_info): 
-		# 	d_info['RS'] = "-"
-		# if (not 'dbSNPBuildID' in d_info): 
-		# 	d_info['dbSNPBuildID'] = "-"
+		if (not 'CNT' in d_info): 
+			d_info['CNT'] = "-"
+
+		# savi change string - this a composite of lower and upper bounds' vals 
+		savi_change = "nochange"
 
 		# print INFO part of line - sorted values
 		for myfield in sorted(d_info):
 			# match savi fields
 			match4 = re.search(r'P(\d+)_F', myfield)
 			match5 = re.search(r'PD(\d+)_L', myfield)
+			match6 = re.search(r'PD(\d+)_U', myfield)
+
+			# print("DEBUG\t" + myfield + "\t" + d_info[myfield])
 
 			# SnpEff field is special case
 			# It might look like:
@@ -270,7 +258,7 @@ for line in contents:
 					print("\t".join(myefflist) + "\t"),
 
 			# else if match savi fields OR any special keys described above, print
-			elif match4 or myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'Sgt1MAXFREQ' or myfield == 'S1ADPP':
+			elif match4 or myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'Sgt1MAXFREQ' or myfield == 'S1ADPP' or myfield == 'COSMIC_NSAMP':
 				print(d_info[myfield] + "\t"),
 			elif myfield == 'CAF':
 				# hack-ish: weld SNP column onto CAF column
@@ -281,7 +269,7 @@ for line in contents:
 				else:
 					print("-\t"),
 				print(d_info[myfield] + "\t"),
-			elif myfield == 'COSMIC_NSAMP':
+			elif myfield == 'CNT':
 				# hack-ish: weld COSMIC column onto COSMIC_NSAMP column
 				# get COSMIC portion of id
 				id_cos = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('C')]
@@ -291,12 +279,16 @@ for line in contents:
 					print("-\t"),
 				print(d_info[myfield] + "\t"),
 			elif match5:
-				if (int(d_info[myfield]) < 0):
-					print("-1\t"),
-				elif (int(d_info[myfield]) > 0):
-					print("1\t"),
-				else:
-					print("0\t"),
+				# lower bound > 0
+				if int(d_info[myfield]) > 0:
+					savi_change = "up"
+			elif match6:
+				# upper bound < 0
+				if int(d_info[myfield]) < 0:
+					savi_change = "down"
+				print(savi_change + "\t"),
+				# reset
+				savi_change = "nochange"
 			
 		# print FORMAT part of header
 		for i in range(7,7+number_samples): 
