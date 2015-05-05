@@ -87,9 +87,6 @@ for line in contents:
 		# ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'INFO', 'FORMAT', 'sample_1', 'sample_2']
 		header = [v for j, v in enumerate(line.split("\t")) if j not in [5,6]]
 		# make a human readable version:
-		# header_readable = [d_readable[j] for j in header[0:5]]
-		# header_readable = ['#chromosome', 'position', 'id', 'ref', 'alt']
-		# header_readable = ['#chromosome', 'position', 'id.snp', 'id.cosmic', 'ref', 'alt']
 		header_readable = ['#chromosome', 'position', 'ref', 'alt']
 
 		# get the number of samples (# cols after the FORMAT field)
@@ -177,22 +174,9 @@ for line in contents:
 		# ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', 'sample_1', 'sample_2']
 		del linelist[5:7]
 
-		# print first part of line, up until but not including INFO field
+		# print first part of line, not including ID, but otherwise up until but not including INFO field
 		# print chrom pos
 		print("\t".join(linelist[0:2]) + "\t"),
-		# # get SNP portion of id
-		# id_rs = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('rs')]
-		# # get COSMIC portion of id
-		# id_cos = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('C')]
-		# # print id in two columns
-		# if id_rs:
-		# 	print(",".join(id_rs) + "\t"),
-		# else:
-		# 	print("-\t"),
-		# if id_cos:
-		# 	print(",".join(id_cos) + "\t"),
-		# else:
-		# 	print("-\t"),
 		# print ref alt 
 		print("\t".join(linelist[3:5]) + "\t"),
 
@@ -253,9 +237,6 @@ for line in contents:
 		# print INFO part of line - sorted values
 		for myfield in sorted(d_info):
 			# match savi fields
-			# match4 = re.search(r'S(\d+)_(.*)', myfield) or re.search(r'P(\d+)_(.*)', myfield)
-			# match4 = re.search(r'P(\d+)_F', myfield) or re.search(r'PD(\d+)_F', myfield)
-			# match4 = re.search(r'P(\d+)_F', myfield)
 			match4 = re.search(r'P(\d+)_F', myfield)
 			match5 = re.search(r'PD(\d+)_L', myfield)
 
@@ -292,15 +273,16 @@ for line in contents:
 			elif match4 or myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'Sgt1MAXFREQ' or myfield == 'S1ADPP':
 				print(d_info[myfield] + "\t"),
 			elif myfield == 'CAF':
-				# get SNP portion of id
+				# hack-ish: weld SNP column onto CAF column
+				# get SNP portion of ID
 				id_rs = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('rs')]
-				# print id in two columns
 				if id_rs:
 					print(",".join(id_rs) + "\t"),
 				else:
 					print("-\t"),
 				print(d_info[myfield] + "\t"),
 			elif myfield == 'COSMIC_NSAMP':
+				# hack-ish: weld COSMIC column onto COSMIC_NSAMP column
 				# get COSMIC portion of id
 				id_cos = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('C')]
 				if id_cos:
