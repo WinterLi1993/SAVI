@@ -81,6 +81,27 @@ string convertInt(int number)
 	return ss.str();	//return a string with the contents of the stream
 }
 
+// test if line well formed
+bool is_well_formed(int index_ref_qual, int index_var_qual, int index_ref, int index_var, std::vector<std::string> &vec_sample_field)
+{	
+	bool wellformed_line = true;
+
+	if ( index_ref_qual <= vec_sample_field.size() && index_var_qual <= vec_sample_field.size() && index_ref <= vec_sample_field.size() && index_var <= vec_sample_field.size() )
+	{
+		// if field has . character, not well formed
+		if ( vec_sample_field[index_ref].substr(0,1).compare(".") == 0 or vec_sample_field[index_var].substr(0,1).compare(".") == 0 )
+		{
+			wellformed_line = false;
+		}
+	}
+	else
+	{
+		wellformed_line = false;
+	}
+
+	return wellformed_line;
+
+}
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 //**************************************//
@@ -151,7 +172,7 @@ void read_vcf(char *s, bool leadingone, int samplenum_1, string &samplestr, bool
 	int index_tot = 0; 			// index of tot depth
 
 	// if 2samples flag not empty
-	if ( samplestr.compare("") != 0 )
+	if ( samplestr.compare("") != 0 && samplestr.compare("1vsall") != 0 )
 	{
 		vec_sample_indices = split(samplestr, delim_com);
 		samplenum_1 = atoi(vec_sample_indices[0].c_str());
@@ -183,8 +204,14 @@ void read_vcf(char *s, bool leadingone, int samplenum_1, string &samplestr, bool
 			info = vec_line[7];
 			format = vec_line[8];
 			
-			// if 2samples flag not empty
-			if ( samplestr.compare("") != 0 and (samplenum_1 > 0 && 8+samplenum_1 <= vec_line.size()) and (samplenum_2 > 0 && 8+samplenum_2 <= vec_line.size()) )
+			// if 2samples flag is 1 vs all
+			if ( samplestr.compare("1vsall") == 0 )
+			{
+				// sample 1 is the first sample
+				samp_1 = vec_line[9];	
+			}
+			// else if 2samples flag not empty
+			else if ( samplestr.compare("") != 0 and (samplenum_1 > 0 && 8+samplenum_1 <= vec_line.size()) and (samplenum_2 > 0 && 8+samplenum_2 <= vec_line.size()) )
 			{
 				samp_1 = vec_line[8+samplenum_1];	
 				samp_2 = vec_line[8+samplenum_2];	
@@ -207,7 +234,7 @@ void read_vcf(char *s, bool leadingone, int samplenum_1, string &samplestr, bool
 			vec_s1_field = split(samp_1,delim);
 
 			// get sample 2 if requested
-			if ( samplestr.compare("") != 0 )
+			if ( samplestr.compare("") != 0 and samplestr.compare("1vsall") != 0 )
 			{
 				vec_s2_field = split(samp_2,delim);
 			}
@@ -258,22 +285,8 @@ void read_vcf(char *s, bool leadingone, int samplenum_1, string &samplestr, bool
 				first_read_line = false;
 			}
 
-			wellformed_line = true;
-			if ( index_ref_qual <= vec_s1_field.size() && index_var_qual <= vec_s1_field.size() && index_ref <= vec_s1_field.size() && index_var <= vec_s1_field.size() )
-			{
-				// if field has . character, not well formed
-				if ( vec_s1_field[index_ref].substr(0,1).compare(".") == 0 or vec_s1_field[index_var].substr(0,1).compare(".") == 0 )
-				{
-					wellformed_line = false;
-				}
-			}
-			else
-			{
-				wellformed_line = false;
-			}
-
 			// if fields exist, print q v t
-			if ( wellformed_line )
+			if ( is_well_formed(index_ref_qual, index_var_qual, index_ref, index_var, vec_s1_field) )
 			{
 				int myqual = ( atoi(vec_s1_field[index_ref_qual].c_str()) + atoi(vec_s1_field[index_var_qual].c_str()) )/2;
 				// total depth at the position
@@ -316,24 +329,37 @@ void read_vcf(char *s, bool leadingone, int samplenum_1, string &samplestr, bool
 				}
 			}
 
-			// if second sample specified, append to line
-			if ( samplestr.compare("") != 0 )
+			// if 1 vs all and at least two samples
+			if ( samplestr.compare("1vsall") == 0 && vec_line.size() > 10 )
 			{
-				wellformed_line = true;
-				if ( index_ref_qual <= vec_s2_field.size() && index_var_qual <= vec_s2_field.size() && index_ref <= vec_s2_field.size() && index_var <= vec_s2_field.size() )
-				{
-					// if field has . character, not well formed
-					if ( vec_s2_field[index_ref].substr(0,1).compare(".") == 0 or vec_s2_field[index_var].substr(0,1).compare(".") == 0 )
+				int all_q = 0;		// int for ave over all quals (save the first one)
+				int all_v = 0;		// int for sum all variant depths (save the first one)
+				int all_t = 0;		// int for sum all tot depths (save the first one)
+
+				// loop through the samples, from one after the first to the end
+				for (int i = 10; i < vec_line.size(); i++)	
+				{	
+					string samp_i = vec_line[i];	
+					// get sample i
+					vector<string> vec_si_field = split(samp_i,delim);
+
+					if ( is_well_formed(index_ref_qual, index_var_qual, index_ref, index_var, vec_si_field) )
 					{
-						wellformed_line = false;
+						all_t += stoi(vec_si_field[index_tot]);
+						all_q += ( atoi(vec_si_field[index_ref_qual].c_str()) + atoi(vec_si_field[index_var_qual].c_str()) )/2;
+						all_v += stoi(vec_si_field[index_var]);
 					}
 				}
-				else
-				{
-					wellformed_line = false;
-				}
+				
+				// get average qual
+				all_q = (all_q)/(vec_line.size()-10);
 
-				if ( wellformed_line )
+				cout << "\t" << all_q << "\t" << all_v << "\t" << all_t << endl;
+			}
+			// if second sample specified, append to line
+			else if ( samplestr.compare("") != 0 )
+			{
+				if ( is_well_formed(index_ref_qual, index_var_qual, index_ref, index_var, vec_s2_field) )
 				{
 					int mytot;
 
@@ -385,7 +411,7 @@ void make1p(int argc, char **argv)
 	int samplenum = 1;		// index of the sample for which to produce q v t 
 	string samplestr = "";		// comma-delimited list of sample indices (if more than one)
 
-	string myhelp = "Make the prior files for savi\nTake a vcf input and produce a file with columns: quality, variant depth, total depth\nNOTE: the sub-fields of the FORMAT field of the vcf file MUST BE THE SAME throughout the file\n\nFlags:\n -1: print a column of leading ones\n -f,--vcf: vcf file (if you leave this flag off, the program expects input piped from std:in)\n -s,--sample: sample index (e.g., 1)\n -2s,--2sample: indices of two samples in a comma-delimited list (e.g., 2,3)\n -h,--help: help\n -rdplusad,--rdplusad: use reference agreeing reads plus variant calling reads (RD+AD) for the total depth, rather than SDP\n -hybrid,--hybrid: if 2sample flag, use reference agreeing reads plus variant calling reads (RD+AD) for the total depth in FIRST sample and use SDP as total depth in SECOND sample; if not, this flag is identical to --rdplusad\n -v,--verbose: verbose mode\n\nUsage: To use, simply pipe your vcf file into this program. E.g.,\n cat variants.vcf | make_qvt -1";
+	string myhelp = "Make the prior files for savi\nTake a vcf input and produce a file with columns: quality, variant depth, total depth\nNOTE: the sub-fields of the FORMAT field of the vcf file MUST BE THE SAME throughout the file\n\nFlags:\n -1: print a column of leading ones\n -f,--vcf: vcf file (if you leave this flag off, the program expects input piped from std:in)\n -s,--sample: sample index (e.g., 1)\n -2s,--2sample: indices of two samples in a comma-delimited list (e.g., 2,3)\n -1vsall,--1vsall: similar to the 2sample flag, but use sample 1 SDP for the first sample and the sum of all subsequent SDPs for the second sample\n -h,--help: help\n -rdplusad,--rdplusad: use reference agreeing reads plus variant calling reads (RD+AD) for the total depth, rather than SDP\n -hybrid,--hybrid: if 2sample flag, use reference agreeing reads plus variant calling reads (RD+AD) for the total depth in FIRST sample and use SDP as total depth in SECOND sample; if not, this flag is identical to --rdplusad\n -v,--verbose: verbose mode\n\nUsage: To use, simply pipe your vcf file into this program. E.g.,\n cat variants.vcf | make_qvt -1";
 
 	if (argc == 1)
 	{
@@ -429,6 +455,12 @@ void make1p(int argc, char **argv)
 			// sample indices
 			i++;
 			samplestr = argv[i];
+		}
+		else if (strcmp(argv[i],"-1vsall") == 0 || strcmp(argv[i],"--1vsall") == 0)
+		{
+			// sample indices
+			i++;
+			samplestr = "1vsall";
 		}
 		else if (strcmp(argv[i],"-rdplusad") == 0 || strcmp(argv[i],"--rdplusad") == 0)
 		{
