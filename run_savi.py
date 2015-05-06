@@ -329,6 +329,35 @@ def run_vlad_code_compare(args, savidir, inplist):
 			f.write("##INFO=<ID=PD" + str_a + str_b + "_L,Number=1,Type=Integer,Description=\"Savi freq delta lower bound for samples " + str_a + " vs " + str_b + "\">\n")
 			f.write("##INFO=<ID=PD" + str_a + str_b + "_U,Number=1,Type=Integer,Description=\"Savi freq delta upper bound for samples " + str_a + " vs " + str_b + "\">\n")
 
+	# a there was at least one savi comparison and there are more than 2 samples, run a 1 vs ALL comparision per order of JiGuang
+	if ( pairwise_list and len(inplist) > 2 ):
+		# arbitarily use the first prior	
+		str_a = pairwise_list[0].split(":")[0]
+		str_b = pairwise_list[0].split(":")[0]
+
+		prior_a = prior_dict[str_a]
+		prior_b = prior_dict[str_b]
+
+		cmd = "zcat " + savidir + "/freqsavi.vcf.bgz | " + \
+		args.bin + "/make_qvt -1 -1vsall | " + \
+		args.bin + "/savi_poster -pd " + prior_a + " " + prior_b + " | " + \
+		args.bin + "/savi_conf -fs " + args.saviconf + " " + args.saviprecision + " | awk -v samp1=0 -v samp2=0" + " '" + '{mystr="PD"samp1 samp2; print mystr"_F="$1";"mystr"_L="$5";"mystr"_U="$(NF-1)}' + "' > " + savidir + "/pd_00.txt"
+		cmd = escape_special_char(cmd)
+
+		# whichcmd(cmd, args, wantreturn, wantqsub=0, jobname="myjob", holdstr="0", wantsync=0):
+		# run cmd and store SGE job id
+		myjobid = whichcmd(cmd, args, 1, args.sge, "j_s" + str_a + "_s" + str_b + "_cmp")
+
+		if ( args.sge ):
+			print("Your job " + myjobid + " has been submitted")
+			sgejobids = myjobid + "," + sgejobids
+
+		# fix vcf header
+		with open(savidir + "/header_addition.txt", 'a') as f:
+			f.write("##INFO=<ID=PD00_F,Number=1,Type=Integer,Description=\"Savi freq delta for samples 1 vs all the others\">\n")
+			f.write("##INFO=<ID=PD00_L,Number=1,Type=Integer,Description=\"Savi freq delta lower bound for samples 1 vs all the others\">\n")
+			f.write("##INFO=<ID=PD00_U,Number=1,Type=Integer,Description=\"Savi freq delta upper bound for samples 1 vs all the others\">\n")
+
 	# a there was at least one savi comparison
 	if (pairwise_list):
 
