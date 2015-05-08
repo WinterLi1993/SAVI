@@ -31,7 +31,8 @@ annvcf=""					# annotating vcfs in comma-delimited list (default: none)
 savi_present="1e-6"				# the SAVI presence posterior
 savi_precision=0				# the SAVI precision, from the Hossein fix
 						# required programs
-required_programs="java python samtools snpEff.jar bgzip tabix vcffilter bcftools"
+# required_programs="java python samtools snpEff.jar bgzip tabix vcffilter bcftools"
+required_programs="java python samtools snpEff.jar bgzip tabix vcffilter"
 required_savi_programs="pileup2multiallele_vcf add_to_info make_qvt savi_poster savi_conf savi_comp savi_poster_accum savi_poster_merge savi_poster_prt savi_unif_prior savi_txt2prior"
 helpmessage=$( cat <<EOF
 Usage:
