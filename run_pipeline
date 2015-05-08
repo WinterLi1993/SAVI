@@ -629,7 +629,7 @@ if [[ $stepstr == *5* ]]; then
 				vcffilter -f "${filterstring_reverse}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf
 
 				# turn vcf into human readable, tab delimited report
-				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.somatic.PDfilter.txt
+				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.somatic.PDfilter.txt
 				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} > ${outputdir2}/report.coding.rev-PDfilter.txt
 			fi
 
@@ -644,39 +644,6 @@ if [[ $stepstr == *5* ]]; then
 
 	echo "[date 5] "`date`;
 fi
-
-# # Copy Number Variation
-# outputdir3=${outputdir}/cnv_${SGE_TASK_ID}
-# if [[ $stepstr == *6* ]]; then
-# 	echo "[STEP6] copy number variation"
-# 	### CNV and LOH
-# 	# THIS ONLY WORKS FOR 2 SAMPLES - PAIRED TUMOR NORMAL DATA
-# 
-# 	mkdir -p ${outputdir3}/prior
-# 
-# 	cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | java -Xmx${java_memory}G \
-# 	    -jar $( which VarScan.v2.3.6.jar ) copynumber \
-# 	    -mpileup \
-# 	    ${outputdir3}/${SGE_TASK_ID}.tumor
-# 
-# 	cat ${outputdir3}/${SGE_TASK_ID}.tumor.copynumber | sed '1d' | awk 'BEGIN{OFS="\t"}{print "1","40",int($6+0.5),int($5+$6+0.5)}' > ${outputdir3}/${SGE_TASK_ID}.qvt.txt
-# 	${software}/make_prior.py -n ${SGE_TASK_ID}.tumor -j 10 -p ${software}/savi/prior_unif01 -o ${outputdir3}/prior --qvt ${outputdir3}/${SGE_TASK_ID}.qvt.txt
-# 
-# 	mymean=$( cat ${outputdir3}/${SGE_TASK_ID}.qvt.txt | awk 'BEGIN{x=0}{x=x+$3/$4;}END{print x/NR}' )
-# 
-# 	cat ${outputdir3}/${SGE_TASK_ID}.qvt.txt | ${software}/savi/savi_poster -p ${outputdir3}/prior/prior | ${software}/savi/savi_comp 2 ${mymean} \
-# 	    | awk 'BEGIN{print "cnv_call\tcnv_call_posterior"}{print}' > ${outputdir3}/${SGE_TASK_ID}.cnv.tmp.txt
-# 
-# 	paste ${outputdir3}/${SGE_TASK_ID}.tumor.copynumber ${outputdir3}/${SGE_TASK_ID}.cnv.tmp.txt > ${outputdir3}/${SGE_TASK_ID}.cnv.txt
-# 
-# 	# Loss of Heterozygosity
-# 	zcat $outputdir/${SGE_TASK_ID}.vcf.bgz | ${software}/savi/make_qvt -1 -2s 2,1 \
-# 	   | ${software}/savi/savi_poster -pd ${outputdir}/savi/prior2/prior ${outputdir}/savi/prior1/prior \
-# 	   | ${software}/savi/savi_comp 2 0 \
-# 	   | awk 'BEGIN{print "loh_call\tloh_call_posterior"}{print}' > ${outputdir3}/${SGE_TASK_ID}.loh.txt
-# 
-# 	echo "[date 6] "`date`;
-# fi
 
 echo "[STEP CLEANUP] clean up"
 # if cleanup
