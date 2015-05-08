@@ -1,21 +1,18 @@
 #!/usr/bin/env python
 
-# About:
+### About:
 # This script takes a vcf file as input, piped in, and converts it to a tab-delimited text file, 
 # with the aim to make the most human readable report
 
-# Usage:
+### Usage:
 # cat myfile.vcf | $0 > myfile.txt
-
-# Notes:
-# This is a bit of a mess but, for now at least, it does the job
 
 import argparse
 import sys
 import re
 
 ### Variables
-d_info = {'EFF.EFFECT':'-'}		# dict for entries in INFO field (all keys in the vcf get an entry)
+d_savi_info = {}			# dict for entries in INFO field pertaining to savi
 d_samples = {}				# dict for sample names
 format = []				# list for entries in FORMAT field
 header=[]				# list for entries in header
@@ -23,11 +20,92 @@ isfirst = 1				# boolean isfirst - if true, we print the header once and turn of
 number_samples = 0			# number of samples in vcf file
 # verboseheader = 1			# boolean verbose header
 # num_eff_fields = 14			# number of SnpEff fields delimited by "|"
-num_eff_fields = 12			# number of SnpEff fields delimited by "|" (change to 12 to ignore ERRORs and WARNINGS field)
+num_eff_fields = 11			# number of SnpEff fields delimited by "|" (change to 11 to ignore GENOTYPE ERRORs and WARNINGS field)
 emptyefflist = ['-']*num_eff_fields	# define empty eff list 
 
+# make a human readable version:
+header_readable = ['#chromosome', 'position', 'ref', 'alt', 'id.snp', 'snp_allele_freq', 'id.cosmic', 'cosmic_n.samples-mut']
+
+# dict for entries in INFO field pertaining to SnpEff
+d_eff_info = { 	'EFFECTa.Effect_Impact': '-',
+		'EFFECTb.Functional_Class': '-',
+		'EFFECTc.Codon_Change': '-',
+		'EFFECTd.Amino_Acid_Change': '-',
+		'EFFECTe.Amino_Acid_length': '-',
+		'EFFECTf.Gene_Name': '-',
+		'EFFECTg.Transcript_BioType': '-',
+		'EFFECTh.Gene_Coding': '-',
+		'EFFECTi.Transcript_ID': '-',
+		'EFFECTj.Exon_Rank': '-' } 
+		# 'EFFECTk.Genotype_Number': '-' } 
+
+# dict for entries in INFO field - specify the INFO fields we want
+d_info = { 	'Sgt1MAXFREQ': '-',
+		'S1ADPP': '-',
+		'COSMIC_NSAMP': '-',
+		'TOT_COUNTS': '-',
+		'SOM_VERIFIED_COUNTS': '-',
+		'CAF': '-',
+		'CNT': '-' } 
+
 # dict to map vcf, SnpEff terms to human readable terms
-d_readable = {'#CHROM':'#chromosome', 'POS':'position', 'ID':'id', 'REF':'ref', 'ALT':'alt', 'SDP':'totdepth', 'RD':'refdepth', 'AD':'altdepth', 'RBQ':'ref_ave_qual', 'ABQ':'alt_ave_qual', 'RDF':'ref_forward_depth', 'RDR':'ref_reverse_depth', 'ADF':'alt_forward_depth', 'ADR':'alt_reverse_depth', '_P':'_presence_bool', '_PF':'_presence_posterior', '_F':'_freq',  '_L':'_savi_change_stat', '_U':'_freq_upper', 'COSMIC_NSAMP':'cosmic_n.samples-gene', 'MEGANORMAL_ID':'meganormal_id', 'NMutPerID':'n.mutations_per_meganormal_id', 'RS':'reference_SNP_id(RS)', 'SOM_VERIFIED_COUNTS':'cbio_somatic_verified_mutation_count', 'SRC':'meganormal_186_TCGA_source', 'TOT_COUNTS':'cbio_total_mutation_count', 'dbSNPBuildID':'dbSNPBuild_for_RS', 'STRAND':'strand', 'CNT':'id.cosmic	cosmic_n.samples-mut', 'CAF':'id.snp	snp_allele_freq', 'Sgt1MAXFREQ':'Sgt1_max_frequency', 'S1ADPP':'S1_alt_depth_per_position'}
+d_readable = {	'#CHROM':'#chromosome', 
+		'POS':'position',
+		'ID':'id',
+		'REF':'ref',
+		'ALT':'alt',
+		'SDP':'totdepth',
+		'RD':'refdepth',
+		'AD':'altdepth',
+		'RBQ':'ref_ave_qual',
+		'ABQ':'alt_ave_qual',
+		'RDF':'ref_forward_depth',
+		'RDR':'ref_reverse_depth',
+		'ADF':'alt_forward_depth',
+		'ADR':'alt_reverse_depth',
+		'_P':'_presence_bool',
+		'_PF':'_presence_posterior',
+		'_F':'_freq',
+		'_L':'_savi_change_stat',
+		'_U':'_freq_upper',
+		'COSMIC_NSAMP':'cosmic_n.samples-gene',
+		'MEGANORMAL_ID':'meganormal_id',
+		'NMutPerID':'n.mutations_per_meganormal_id',
+		'RS':'reference_SNP_id(RS)',
+		'SOM_VERIFIED_COUNTS':'cbio_somatic_verified_mutation_count',
+		'SRC':'meganormal_186_TCGA_source',
+		'TOT_COUNTS':'cbio_total_mutation_count',
+		'dbSNPBuildID':'dbSNPBuild_for_RS',
+		'STRAND':'strand',
+		'CNT':'cosmic_n.samples-mut',
+		'CAF':'snp_allele_freq',
+		'Sgt1MAXFREQ':'Sgt1_max_frequency',
+		'S1ADPP':'S1_alt_depth_per_position' }
+
+# specify the format fields we want - only a subset of total:
+# ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] to
+format = ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] 
+# make a human readable version:
+format_readable = [d_readable[j] for j in format]
+
+# a function to test if INFO field is from SAVI - only want PD _L and P _F
+def is_savi_info_field(mystring):
+	"""Test if INFO field is from SAVI"""
+
+	# grab savi specific INFO fields - e.g., 
+	# no: ##INFO=<ID=PD21_F,Number=1,Type=Integer,Description="Savi freq delta for samples 2 vs 1">
+	# yes: ##INFO=<ID=PD21_L,Number=1,Type=Integer,Description="Savi freq delta lower bound for samples 2 vs 1">
+	# yes: ##INFO=<ID=PD21_U,Number=1,Type=Integer,Description="Savi freq delta upper bound for samples 2 vs 1">
+	# yes: ##INFO=<ID=P1_F,Number=1,Type=Integer,Description="Savi freq for sample 1">
+	# no: ##INFO=<ID=P1_L,Number=1,Type=Integer,Description="Savi freq lower bound for sample 1">
+	# no: ##INFO=<ID=P1_U,Number=1,Type=Integer,Description="Savi freq upper bound for sample 1">
+	# no: ##INFO=<ID=S1_P,Number=1,Type=Integer,Description="Savi presence call boolean for sample 1">
+	# no: ##INFO=<ID=S1_PF,Number=1,Type=Float,Description="Savi posterior for presence or absence for sample 1">
+
+	if re.search(r'P(\d)_F', mystring) or re.search(r'PD(\d+)_[UL]', mystring):
+		return 1
+	else:
+		return 0
 
 ### Read Arguments
 prog_description = """This script takes a vcf file as input, piped in, and converts it to a tab-delimited text file, 
@@ -38,6 +116,7 @@ with the aim to make a human readable report
 parser = argparse.ArgumentParser(description=prog_description)
 parser.add_argument("-v", "--verbose", 		action="store_true",		help="verbose mode. Default: off")
 parser.add_argument("--header", 		action="store_true",		help="print vcf header lines beginning with \"##\". Default: off")
+parser.add_argument("--debug", 			action="store_true",		help="turn on debugger (print extra stuff). Default: off")
 parser.add_argument("-s", "--samples",						help="comma delimited sample names")
 
 args = parser.parse_args()
@@ -69,31 +148,17 @@ for line in contents:
 		# grab INFO subfield ID
 		match = re.search(r'##INFO=<ID=(\w+)(.*)', line)
 
-		# define d_info
-		if match: 
-			# special case for EFF header, which has "|" delimited sub-fields
-			if (match.group(1) == "EFF"):
-				# eff line looks something like this:
-				# ,Number=.,Type=String,Description="Predicted effects for this variant.Format: 'Effect ( Effect_Impact | Functional_Class | Codon_Change | Amino_Acid_Change| Amino_Acid_length | Gene_Name | Transcript_BioType | Gene_Coding | Transcript_ID | Exon_Rank  | Genotype_Number [ | ERRORS | WARNINGS ] )' ">
-				# get eff fields into header
-				match2 = re.search(r'(.*)\((.*)\[ \| (.*)\] \)', line) 
-				# d_info.update(dict.fromkeys(["EFFECT%s.%s" % (chr(ord('a') + my_index), j.strip()) for my_index, j in enumerate( match2.group(2).split("|") + match2.group(3).split("|") )], "-"))
-				d_info.update(dict.fromkeys(["EFFECT%s.%s" % (chr(ord('a') + my_index), j.strip()) for my_index, j in enumerate( match2.group(2).split("|") )], "-"))
-			else:
-				d_info[match.group(1)] = "-"
+		if match and is_savi_info_field(match.group(1)):
+			d_savi_info[match.group(1)] = "-"
 
 	# single # header
 	elif ( line[0:1] == "#" ):
 		# e.g., single # header looks like this:
 		# ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', 'sample_1', 'sample_2']
-		# but only want subset:
-		# ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'INFO', 'FORMAT', 'sample_1', 'sample_2']
-		header = [v for j, v in enumerate(line.split("\t")) if j not in [5,6]]
-		# make a human readable version:
-		header_readable = ['#chromosome', 'position', 'ref', 'alt']
 
+		header = line.split("\t")
 		# get the number of samples (# cols after the FORMAT field)
-		number_samples = len(header) - 7
+		number_samples = len(header) - 9
 
 		# check for error - did user give the correct number of sample names?
 		if args.samples and len(d_samples) != number_samples:
@@ -102,52 +167,58 @@ for line in contents:
 
 	# the non-empty, non-header lines of the vcf
 	elif ( line ):
-		# if isfirst bool - i.e., if we're on the first non-header line of the vcf - finish printing the header of the report
+		# if isfirst bool - i.e., if we're on the first non-header line of the vcf, print the header of the report
 		if (isfirst):
-			# get list of elts in FORMAT field
-			# but only subset: filter from
-			# ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] to
-			# ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR']
-			format = [v for j, v in enumerate( line.split("\t")[8].split(":") ) if j not in [0,1,3,6,7]]
-			# make a human readable version:
-			format_readable = [d_readable[j] for j in format]
+
+			if (args.debug):
+				print("---DEBUG---")
+				print(d_info)
+				print(d_eff_info)
+				print(d_savi_info)
 
 			# print first part of header, up until but not including INFO field
 			print("\t".join(header_readable) + "\t"),
 
-			# print INFO part of header (selective parts of the INFO field)
-			for myfield in sorted(d_info): 
+			# print the SnpEff INFO part of header
+			print("Effect\t"),
+			for myfield in sorted(d_eff_info):
+
+				print(myfield.split(".")[1] + "\t"),
+
+			# print the non-savi INFO part of header
+			for myfield in sorted(d_info):
+
+				# make exceptions for CNT and CAF
+				if myfield in d_readable and myfield != 'CNT' and myfield != 'CAF': 
+					print(d_readable[myfield] + "\t"),
+
+			# print the savi INFO part of header (selective parts of the INFO field)
+			for myfield in sorted(d_savi_info):
 				# match savi fields, which can look like this:
 				# P1_F P2_F
-				match4 = re.search(r'([P])(\d)(_[FP](F?))', myfield)
+				match4 = re.search(r'P(\d)(_F)', myfield)
 				# or this:
 				# PD21_L (assume fewer than 10 samples)
-				match5 = re.search(r'(PD)(\d)(\d)(_[L])', myfield)
+				match5 = re.search(r'PD(\d)(\d)(_L)', myfield)
 
 				# make this field human readable
 				if (match4): 
 					# use sample names if user has provided them
 					if (args.samples):
-						print(d_samples[match4.group(2)] + d_readable[match4.group(3)] + "\t"),
+						print(d_samples[match4.group(1)] + d_readable[match4.group(2)] + "\t"),
 					else:
-						print(match4.group(2) + d_readable[match4.group(3)] + "\t"),
+						print(match4.group(1) + d_readable[match4.group(2)] + "\t"),
 
 				# make this field human readable
 				elif (match5): 
+					# special case
+					if ( match5.group(1) == "0" and match5.group(2) == "0" ):
+						print("all-1" + d_readable[match5.group(3)] + "\t"),
 					# use sample names if user has provided them
-					if (args.samples):
-						print(d_samples[match5.group(2)] + "-" + d_samples[match5.group(3)] + d_readable[match5.group(4)] + "\t"),
+					elif (args.samples):
+						print(d_samples[match5.group(1)] + "-" + d_samples[match5.group(2)] + d_readable[match5.group(3)] + "\t"),
 					else:
-						print(match5.group(2) + "-" + match5.group(3) + d_readable[match5.group(4)] + "\t"),
-
-				elif myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'CNT' or myfield == 'CAF' or myfield == 'COSMIC_NSAMP' or myfield == 'Sgt1MAXFREQ' or myfield == 'S1ADPP':
-					if myfield in d_readable:
-						print(d_readable[myfield] + "\t"),
-					else:
-						print(myfield + "\t"),
-
-				elif myfield.startswith('EFF'):
-					print(myfield.split(".")[1] + "\t"),
+						print(match5.group(1) + "-" + match5.group(2) + d_readable[match5.group(3)] + "\t"),
 
 			# print FORMAT part of header
 			for i in range(1,1+number_samples): 
@@ -168,6 +239,19 @@ for line in contents:
 
 		# reset dict
 		for x in d_info: d_info[x]="-"
+		for x in d_eff_info: d_eff_info[x]="-"
+		for x in d_savi_info: d_savi_info[x]="-"
+
+		# reset line string components
+		# these variables will concatenate to form the complete line
+		line_1 = ""
+		line_2 = ""
+		line_3 = ""
+		line_4 = ""
+		line_5 = ""
+		line_6 = ""
+		line_7 = ""
+		line_8 = ""
 
 		# split line on tab
 		linelist = line.split("\t")
@@ -179,123 +263,101 @@ for line in contents:
 
 		# print first part of line, not including ID, but otherwise up until but not including INFO field
 		# print chrom pos
-		print("\t".join(linelist[0:2]) + "\t"),
+		line_1 = "\t".join(linelist[0:2]) + "\t"
 		# print ref alt 
-		print("\t".join(linelist[3:5]) + "\t"),
+		line_2 = "\t".join(linelist[3:5]) + "\t"
 
-		# loop thro INFO keys - if key found, add val
-		for x in linelist[5].split(";"): 
-			# pattern must be: blob=blob or we wont consider
-			if (re.search(r'(\S+)=(\S+)', x)):
-				d_info[x.split("=")[0]] = x.split("=")[1]
-		# if eff key not present, add it
-		if (not 'EFF' in d_info): 
-			d_info['EFF'] = "-"
+		# get SNP portion of ID
+		id_rs = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('rs')]
+		if id_rs:
+			line_3 = ",".join(id_rs) + "\t"
+		else:
+			line_3 = "-\t"
 
-		## Keep these special keys in the INFO field:
-		# Sgs1MAXFREQ
-		# S1ADPP
-		# COSMIC_NSAMP How many samples have this mutation
-		# TOT_COUNTS Total Mutation Count
-		# SOM_VERIFIED_COUNTS Somatic Verified Mutation Count
-		# CAF
+		# get COSMIC portion of id
+		id_cos = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('C')]
+		if id_cos:
+			line_4 = ",".join(id_cos) + "\t"
+		else:
+			line_4 = "-\t"
 
-		# if key not present, add it
-		if (not 'Sgt1MAXFREQ' in d_info): 
-			d_info['Sgt1MAXFREQ'] = "-"
-		if (not 'S1ADPP' in d_info): 
-			d_info['S1ADPP'] = "-"
-		if (not 'COSMIC_NSAMP' in d_info): 
-			d_info['COSMIC_NSAMP'] = "-"
-		if (not 'TOT_COUNTS' in d_info): 
-			d_info['TOT_COUNTS'] = "-"
-		if (not 'SOM_VERIFIED_COUNTS' in d_info): 
-			d_info['SOM_VERIFIED_COUNTS'] = "-"
-		if (not 'CAF' in d_info): 
-			d_info['CAF'] = "-"
-		if (not 'CNT' in d_info): 
-			d_info['CNT'] = "-"
+		# start with SnpEff part empty by default
+		line_5  = "\t".join(['-']*num_eff_fields) + "\t"
 
-		# savi change string - this a composite of lower and upper bounds' vals 
-		savi_change = "nochange"
+ 		# loop thro INFO keys - if key found, add val
+ 		for x in linelist[5].split(";"): 
+ 			# pattern must be: blob=blob or we wont consider
+ 			if (re.search(r'(\S+)=(\S+)', x)):
+ 				# regular INFO field
+ 				if x.split("=")[0] in d_info:
+ 					d_info[x.split("=")[0]] = x.split("=")[1]
 
-		# print INFO part of line - sorted values
-		for myfield in sorted(d_info):
-			# match savi fields
-			match4 = re.search(r'P(\d+)_F', myfield)
-			match5 = re.search(r'PD(\d+)_L', myfield)
-			match6 = re.search(r'PD(\d+)_U', myfield)
+ 				# SAVI INFO field
+ 				if is_savi_info_field(x.split("=")[0]):
+ 					d_savi_info[x.split("=")[0]] = x.split("=")[1]
+ 
+ 				# SnpEff INFO field is special case
+ 				# It might look like:
+ 				# INTRAGENIC(MODIFIER|||||AL583842.3||NON_CODING|||1)
+ 				# SPLICE_SITE_REGION(LOW||||259|AL627309.1|protein_coding|CODING|ENST00000423372|1|1|WARNING_TRANSCRIPT_NO_START_CODON)
+ 				if x.split("=")[0] == "EFF":
 
-			# print("DEBUG\t" + myfield + "\t" + d_info[myfield])
+					# myefflist default empty
+					myefflist = ['-']*num_eff_fields
 
-			# SnpEff field is special case
-			# It might look like:
-			# INTRAGENIC(MODIFIER|||||AL583842.3||NON_CODING|||1)
-			# SPLICE_SITE_REGION(LOW||||259|AL627309.1|protein_coding|CODING|ENST00000423372|1|1|WARNING_TRANSCRIPT_NO_START_CODON)
-			if myfield == "EFF":
-				myefflist = ['-']*num_eff_fields
-				if (d_info[myfield] == "-"):
-					print("\t".join(myefflist) + "\t"),
-				else: 
 					# split eff field on commas
-					for ii in d_info[myfield].split(","):
+					for ii in x.split("=")[1].split(","):
 						match3 = re.search(r'(.*)\((.*)\)', ii)
 						my_tmp_efflist = [match3.group(1)] + match3.group(2).split("|")
 						# truncate to cut off errors and warnings
 						my_tmp_efflist = my_tmp_efflist[:num_eff_fields]
 						# if subfield empty, set to '-'
 						my_tmp_efflist = [myelt if myelt else '-' for myelt in my_tmp_efflist]
-						# if no warnings or errors (list less than 13 elts), extend list to 13 elts
-						# mydiff = num_eff_fields - len(my_tmp_efflist)
-						# if (mydiff>0):
-						# 	my_tmp_efflist.extend(['-']*mydiff)
-						# if efflist null, set it; else concat
 						if (myefflist == emptyefflist):
 							myefflist = my_tmp_efflist
 						else:
 							myefflist = ["%s,%s" % (jj, kk) for jj, kk in zip(myefflist, my_tmp_efflist)]
 					# print output
-					print("\t".join(myefflist) + "\t"),
+					line_5 = "\t".join(myefflist) + "\t"
 
-			# else if match savi fields OR any special keys described above, print
-			elif match4 or myfield == 'TOT_COUNTS' or myfield == 'SOM_VERIFIED_COUNTS' or myfield == 'Sgt1MAXFREQ' or myfield == 'S1ADPP' or myfield == 'COSMIC_NSAMP':
-				print(d_info[myfield] + "\t"),
-			elif myfield == 'CAF':
-				# hack-ish: weld SNP column onto CAF column
-				# get SNP portion of ID
-				id_rs = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('rs')]
-				if id_rs:
-					print(",".join(id_rs) + "\t"),
-				else:
-					print("-\t"),
-				print(d_info[myfield] + "\t"),
-			elif myfield == 'CNT':
-				# hack-ish: weld COSMIC column onto COSMIC_NSAMP column
-				# get COSMIC portion of id
-				id_cos = [myid for myid in re.split('\W',linelist[2]) if myid.startswith('C')]
-				if id_cos:
-					print(",".join(id_cos) + "\t"),
-				else:
-					print("-\t"),
-				print(d_info[myfield] + "\t"),
-			elif match5:
-				# lower bound > 0
-				if int(d_info[myfield]) > 0:
-					savi_change = "up"
-			elif match6:
-				# upper bound < 0
-				if int(d_info[myfield]) < 0:
-					savi_change = "down"
-				print(savi_change + "\t"),
-				# reset
-				savi_change = "nochange"
-			
-		# print FORMAT part of header
-		for i in range(7,7+number_samples): 
-			# but only want subset: filter from
-			# ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] to
-			# ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR']
-			tmpformat = [v for j, v in enumerate(linelist[i].split(":")) if j not in [0,1,3,6,7]]
-			print("\t".join(tmpformat) + "\t"),
+ 		# print INFO part of line - sorted values
+ 		for myfield in sorted(d_info):
+			if myfield != 'CNT' and myfield != 'CAF': 
+ 				line_6 += d_info[myfield] + "\t"
 
-		print("\n"),
+		# CNT and CAF special cases
+		line_3 += d_info['CAF'] + "\t"
+		line_4 += d_info['CNT'] + "\t"
+
+ 		# savi change string - this a composite of lower and upper bounds' vals 
+ 		savi_change = "nochange"
+ 		# print INFO part of line - sorted values
+ 		for myfield in sorted(d_savi_info):
+
+			# this loop should look like:
+			# P1_F P2_F P3_F PD21_L PD21_U PD32_L PD32_U
+
+			if re.search(r'P(\d)_F', myfield):
+ 				line_7 += d_savi_info[myfield] + "\t"
+			elif re.search(r'PD(\d+)_L', myfield):
+ 				# lower bound > 0
+ 				if int(d_savi_info[myfield]) > 0:
+ 					savi_change = "up"
+			elif re.search(r'PD(\d+)_U', myfield):
+ 				# upper bound < 0
+ 				if int(d_savi_info[myfield]) < 0:
+ 					savi_change = "down"
+ 				line_7 += savi_change + "\t"
+ 				# reset
+ 				savi_change = "nochange"
+
+ 		# print FORMAT part of header
+ 		for i in range(7,7+number_samples): 
+ 			# but only want subset: filter from
+ 			# ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] to
+ 			# ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR']
+ 			tmpformat = [v for j, v in enumerate(linelist[i].split(":")) if j not in [0,1,3,6,7]]
+ 			line_8 += "\t".join(tmpformat) + "\t"
+
+		# print out line
+		print(line_1 + line_2 + line_3 + line_4 + line_5 + line_6 + line_7 + line_8)
