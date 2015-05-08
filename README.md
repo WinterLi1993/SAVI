@@ -61,14 +61,15 @@ Before you run SAVI, you should follow these steps:
 
 **Workflow**
 
-The SAVI pipeline is organized into 6 main steps. The steps are:
+The SAVI pipeline is organized into 5 main steps. The steps are:
 
 1. Format conversion: bams to mpileup (input: bam files; output: pileup file)
 2. Format conversion: mpileup to multiallelic vcf (input: pileup file; output: vcf file)
 3. Savi: Make Prior (input: vcf file; output: prior files)
 4. Savi: Run Savi (input: vcf file + prior files; output: filtered vcf file)
 5. SnpEff Annotation (input: filtered vcf file; output: filtered, annotated vcf file)
-6. Copy Number Variation and Loss of Heterozygosity Computation (optional for the Tumor-Normal paired samples only) (input: pileup; output: text file)
+
+By default, step 3 is not run and a standard diploid prior is used instead.
 
 **Usage Examples**
 
