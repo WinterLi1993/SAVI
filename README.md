@@ -20,7 +20,6 @@ The following programs must be in your `PATH`:
 - [tabix](http://samtools.sourceforge.net/tabix.shtml)
 - [bgzip](http://samtools.sourceforge.net/tabix.shtml)
 - [vcflib](https://github.com/ekg/vcflib)
-- (VarScan, if you want to run the Copy Number Variation and Loss of Heterozygosity Computation step)
 
 **Installation**
 
@@ -38,14 +37,15 @@ It is also helpful to use various vcf files to provide additional annotation.
 You can download all of this on the Rabadan lab homepage [here](http://rabadan.c2b2.columbia.edu/public/savi_resources/).
 You'll find the following files. A human reference, GRCh37.71:
 
-- GRCh37.71.chr.fa
-- GRCh37.71.chr.fa.fai
+- hg19_chr.fold.25.fa
+- hg19_chr.fold.25.fa.fai
 
 And various annotating vcfs:
 
 - dbSnp138.vcf - dbSnp 138
 - cbio.fix.sort.vcf - cBio variants
-- CosmicVariants_v66_20130725.vcf - Cosmic variants
+- CosmicCodingMuts.v72.May52015.jw.vcf - Cosmic variants
+- CosmicNonCodingVariants.v72.May52015vcf - Cosmic variants
 - 219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf - Rabadan Lab supernormal
 - meganormal186TCGA.fix.sort.vcf - Rabadan Lab TCGA supernormal
 
@@ -83,7 +83,7 @@ Before we run SAVI, we need to make sure of the following:
 Got it? Good! Here's an example command running SAVI **for chromosome 1**:
 
 ```
-SAVI/run_pipeline --bam normal.bam,tumor.bam --names NORMAL,TUMOR --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --compsamp 2:1 --outputdir outputdir/samplename/chr1 --region chr1 --ann-vcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicVariants_v66_20130725.vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
+SAVI/run_pipeline --bam normal.bam,tumor.bam --names NORMAL,TUMOR --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --compsamp 2:1 --outputdir outputdir/samplename/chr1 --region chr1 --ann-vcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicCodingMuts.v72.May52015.jw.vcf,savi_resources/CosmicNonCodingVariants.v72.May52015vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
 ```
 
 In practice, we'd want to run SAVI for every chromosome in a loop:
@@ -98,7 +98,7 @@ Another use case is a tumor-only bam file.
 Here's a sample command again **for chromosome 1**:
 
 ```
-SAVI/run_pipeline --bam tumor.bam --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --compsamp 1 --nofilter --outputdir outputdir/samplename/chr1 --region chr1 --ann-vcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicVariants_v66_20130725.vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
+SAVI/run_pipeline --bam tumor.bam --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --compsamp 1 --nofilter --outputdir outputdir/samplename/chr1 --region chr1 --ann-vcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicCodingMuts.v72.May52015.jw.vcf,savi_resources/CosmicNonCodingVariants.v72.May52015vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
 ```
 
 In this case, SAVI won't be able to call somatic variants.
@@ -109,7 +109,3 @@ Instead, it will merely tell us what it thinks are present---a much longer list 
 - Are your bams sorted by position? - Samtools mpileup requires "position sorted alignment files."
 - Did you index your bams to produce bai files? - Samtools won't be able to extract regions of your bam files if they have not been indexed.
 - Are both the tumor and normal bam files mapped to the same reference?
-
-**More Detailed Documentation**
-
-This page has the most up-to-date documentation, but for a more detailed overview [read this](http://www.oliverelliott.org/article/bioinformatics/doc_savi/).
