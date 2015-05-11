@@ -237,7 +237,7 @@ for line in contents:
 
 		### now we're no longer on the first line:	
 
-		# reset dict
+		# reset dicts
 		for x in d_info: d_info[x]="-"
 		for x in d_eff_info: d_eff_info[x]="-"
 		for x in d_savi_info: d_savi_info[x]="-"
@@ -340,13 +340,16 @@ for line in contents:
 			if re.search(r'P(\d)_F', myfield):
  				line_7 += d_savi_info[myfield] + "\t"
 			elif re.search(r'PD(\d+)_L', myfield):
- 				# lower bound > 0
- 				if int(d_savi_info[myfield]) > 0:
- 					savi_change = "up"
+				if (d_savi_info[myfield] != "-"):
+					# lower bound > 0
+					if int(d_savi_info[myfield]) > 0:
+						savi_change = "up"
 			elif re.search(r'PD(\d+)_U', myfield):
- 				# upper bound < 0
- 				if int(d_savi_info[myfield]) < 0:
- 					savi_change = "down"
+				if (d_savi_info[myfield] == "-"):
+					savi_change = "-"
+				# upper bound < 0
+				else if int(d_savi_info[myfield]) < 0:
+					savi_change = "down"
  				line_7 += savi_change + "\t"
  				# reset
  				savi_change = "nochange"
