@@ -348,7 +348,7 @@ for line in contents:
 				if (d_savi_info[myfield] == "-"):
 					savi_change = "-"
 				# upper bound < 0
-				else if int(d_savi_info[myfield]) < 0:
+				elif int(d_savi_info[myfield]) < 0:
 					savi_change = "down"
  				line_7 += savi_change + "\t"
  				# reset
