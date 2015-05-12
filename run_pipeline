@@ -613,7 +613,7 @@ if [[ $stepstr == *5* ]]; then
 
 			# if sample names given, use them
 			reportoptions=""
-			if [ -z $sample_names ]; then 
+			if [ ! -z $sample_names ]; then 
 				reportoptions="--samples $sample_names"
 			fi
 
