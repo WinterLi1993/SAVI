@@ -84,6 +84,12 @@ d_readable = {	'#CHROM':'#chromosome',
 		'Sgt1MAXFREQ':'Sgt1_max_frequency',
 		'S1ADPP':'S1_alt_depth_per_position' }
 
+# a hack-y dict to flip up and down for the savi change 
+d_flip = { 	'up':'down',
+		'down':'up',
+		'nochange':'nochange',
+		'-':'-' } 
+
 # specify the format fields we want - only a subset of total:
 # ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] to
 # format = ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] 
@@ -367,7 +373,13 @@ for line in contents:
 				# upper bound < 0
 				elif int(d_savi_info[myfield]) < 0:
 					savi_change = "down"
- 				line_8 += savi_change + "\t"
+
+				# PD00 is a special case
+				if ( myfield == 'PD00_U' ):
+ 					line_8 += d_flip[savi_change] + "\t"
+				else:
+ 					line_8 += savi_change + "\t"
+
  				# reset
  				savi_change = "nochange"
 
