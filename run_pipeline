@@ -334,13 +334,15 @@ if [ $debug -eq 1 ]; then
 	set -eux
 fi
 
-if [ $myregion == "MT" -o $myregion == "chrMT" ]; then
-	anngenome="GRCh37.71"
-	echo "[alert] SnpEff annotating genome changed to "${anngenome}
-fi
-
 # if region set 
 if [ ! -z "${myregion}" ]; then
+
+	# if Mitochondria, make special provision
+	if [ $myregion == "MT" -o $myregion == "chrMT" ]; then
+		anngenome="GRCh37.71"
+		echo "[alert] SnpEff annotating genome changed to "${anngenome}
+	fi
+
 	regionflag="-r ${myregion}";
 	echo "[region] "$myregion
 # not set
@@ -655,9 +657,9 @@ if [ $cleanup -eq 1 ]; then
 	rm -f ${outputdir3}/${SGE_TASK_ID}.qvt.txt
 	rm -f ${outputdir3}/${SGE_TASK_ID}.cnv.tmp.txt
 	rm -f ${outputdir3}/${SGE_TASK_ID}.tumor.copynumber
+	# remove this because we already have the zipped version
+	rm -f ${outputdir}/savi/out/finalsavi.vcf
 fi
-# remove this because we already have the zipped version
-rm -f ${outputdir}/savi/out/finalsavi.vcf
 
 time2=$( date "+%s" )
 echo "[deltat] "$(( $time2 - $time1 ))
