@@ -18,6 +18,8 @@ minad=2						# pileup2multiallele_vcf flag: min alt depth (AD) to print variant 
 s1adpp=3					# filter on S1 AD PP less than this - i.e., normal alt depth per position NOT per variant
 stepstr=1245					# what steps to run (default: 1,2,4,5 - don't generate prior)
 software=$( dirname $( readlink -m $0 ) )	# directory where to look for scripts
+buildprior=${software}/savi/prior_unif01	# input prior for building a new prior (default: savi/prior_unif01)
+inputprior=${software}/savi/prior_diploid01	# input prior to use by default (default: savi/prior_unif01)
 input_bams=""					# input bam files
 sample_names=""					# sample names in a comma-delimited list
 num_bams=2					# number of input bams (default: 2)
@@ -64,7 +66,7 @@ Options:
   --memory		the memory for the Java virtual machine in gigabytes (default: 6)
   --mindepth		the minimum read depth required in at least one sample - positions without this wont appear in pileup file (default: 5)
   --minad		min alt depth (AD) in at least one sample to output variant (default: 2)
-  --mapqual		pileup flag: skip alignments with mapQ less than this (default: 30)
+  --mapqual		pileup flag: skip alignments with mapQ less than this (default: 10)
   --s1adpp		for filtered report, require the sample 1 (normal) alt depth per position to be less than this (default: 3) (note: this NOT S1 AD per mismatch but, rather, per position)
   --noclean		do not delete tmp intermediate files (default: off)
   --pv4			run bcftools to compute PV4 (default: off)
@@ -82,7 +84,7 @@ Options:
   --buildprior		starting input prior when building the prior (default: savi/prior_unif01)
   --prior		prior to use if step3 is not run (default: savi/prior_diploid01)
   --presence		the SAVI presence posterior (default: 1e-6)
-  --precision		the SAVI precision
+  --precision		the SAVI precision (default: 0)
   --help		print this message and exit
 
 Example:
@@ -250,8 +252,6 @@ while [ $# -gt 0 ]; do
 done
 
 time1=$( date "+%s" )
-buildprior=${software}/savi/prior_unif01	# input prior for building a new prior (default: savi/prior_unif01)
-inputprior=${software}/savi/prior_diploid01	# input prior to use by default (default: savi/prior_unif01)
 
 echo "[START] "`date`
 echo "[pwd] "`pwd`
