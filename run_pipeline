@@ -627,8 +627,8 @@ if [[ $stepstr == *5* ]]; then
 				filterstring_reverse=$( echo $compsamp | perl -ne '{chomp($line = $_); @myarr = split(/,/, $line); foreach my $elt (@myarr) {if ($elt =~ s/://) {print "PD".$elt."_U < 0 | "}}}' | sed 's|\| $||' )
 
 				# add filter for PD00
-				if [ ! -z filterstring ]; then filterstring="PD00_L > 0 | "${filterstring}; fi
-				if [ ! -z filterstring_reverse ]; then filterstring_reverse="PD00_U < 0 | "${filterstring_reverse}; fi
+				if [ ! -z filterstring ]; then filterstring="PD00_U < 0 | "${filterstring}; fi
+				if [ ! -z filterstring_reverse ]; then filterstring_reverse="PD00_L > 0 | "${filterstring_reverse}; fi
 
 				echo "[filterstring] $filterstring"
 				echo "[reverse filterstring] $filterstring_reverse"
