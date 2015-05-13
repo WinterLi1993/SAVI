@@ -137,6 +137,9 @@ while [ $# -gt 0 ]; do
 	elif [  "$1" == "-scripts" -o "$1" == "--scripts" ]; then
 		shift; 
 		software=$1; 
+		# update these paths (hack)
+		buildprior=${software}/savi/prior_unif01	# input prior for building a new prior (default: savi/prior_unif01)
+		inputprior=${software}/savi/prior_diploid01	# input prior to use by default (default: savi/prior_unif01)
 		shift
 	elif [  "$1" == "-ref" -o "$1" == "--ref" ]; then
 		shift; 
@@ -627,7 +630,7 @@ if [[ $stepstr == *5* ]]; then
 				filterstring_reverse=$( echo $compsamp | perl -ne '{chomp($line = $_); @myarr = split(/,/, $line); foreach my $elt (@myarr) {if ($elt =~ s/://) {print "PD".$elt."_U < 0 | "}}}' | sed 's|\| $||' )
 
 				# add filter for PD00
-				if [ ! -z filterstring ]; then filterstring="PD00_U < 0 | "${filterstring}; fi
+				if [ ! -z filterstring ]; then filterstring="( Sgt1MAXFREQ > 4 ) & ( (P1_L > 0 & P1_L < 51 & P1_U > 49) | (P1_L = 0) ) & ( PD00_U < 0 | "${filterstring}" )"; fi
 				if [ ! -z filterstring_reverse ]; then filterstring_reverse="PD00_L > 0 | "${filterstring_reverse}; fi
 
 				echo "[filterstring] $filterstring"
