@@ -35,7 +35,7 @@ savi_present="1e-6"				# the SAVI presence posterior
 savi_precision=0				# the SAVI precision, from the Hossein fix
 						# required programs
 # required_programs="java python samtools snpEff.jar bgzip tabix vcffilter bcftools"
-required_programs="java python samtools snpEff.jar bgzip tabix vcffilter"
+required_programs="java python samtools snpEff.jar bgzip tabix vcffilter bcftools"
 required_savi_programs="pileup2multiallele_vcf add_to_info make_qvt savi_poster savi_conf savi_comp savi_poster_accum savi_poster_merge savi_poster_prt savi_unif_prior savi_txt2prior"
 helpmessage=$( cat <<EOF
 Usage:
@@ -657,9 +657,25 @@ if [[ $stepstr == *5* ]]; then
 				vcffilter -f "${filterstring}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.PDfilter.vcf
 				vcffilter -f "${filterstring_reverse}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf
 
-				# turn vcf into human readable, tab delimited report
-				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g'  > ${outputdir2}/report.coding.PDfilter.txt
-				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.rev-PDfilter.txt
+				# turn vcf into human readable, tab delimited report if nonzero in size
+				if [ -s ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.PDfilter.vcf ]; then
+					cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.PDfilter.txt
+
+					# hack to get PV4
+					echo -e "bcftools_qual\tvariant_distance_bias\tmap_qual_0_fraction\tPV4_strand_bias\tPV4_baseQ_bias\tPV4_mapQ_bias\tPV4_tail_distance_bias" > ${outputdir2}/tmp.txt
+					cat ${outputdir2}/report.coding.PDfilter.txt | sed '1d' | cut -f1,2,3,4 | while read mychr mypos myref myalt; do 
+						samtools mpileup -g ${pileupflag} ${input_bams} -r ${mychr}:${mypos}-${mypos} | bcftools call -p 1.1 -A -c - | awk -v ref=${myref} -v alt=${myalt} '$0 !~ /^#/{if (ref != $4 || alt != $5) {print "-\t-\t-\t-\t-\t-\t-"} else {printf $6; split($8,a,";"); for (i = 1; i <= length(a); i++) {if (a[i] ~ /VDB|MQ0F/ ) {split(a[i],b,"="); printf "\t"b[2]} else if (a[i] ~ /PV4/ ) {split(substr(a[i],5),b,","); print "\t"b[1]"\t"b[2]"\t"b[3]"\t"b[4]}}}}'; 
+						done >> ${outputdir2}/tmp.txt
+
+					paste ${outputdir2}/report.coding.PDfilter.txt ${outputdir2}/tmp.txt > ${outputdir2}/report.coding.PDfilter.pv4.txt
+					rm ${outputdir2}/tmp.txt
+
+				fi
+
+				# turn vcf into human readable, tab delimited report if nonzero in size
+				if [ -s ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.PDfilter.vcf ]; then
+					cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.rev-PDfilter.txt
+				fi
 			fi
 
 			# turn vcf into human readable, tab delimited report
