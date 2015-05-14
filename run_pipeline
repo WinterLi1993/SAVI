@@ -6,7 +6,7 @@ java_memory=6					# memory of the Java virtual mach in Gigabytes (default: 6)
 SGE_TASK_ID=0					# index of region (default: all (0))
 myregion=""					# user specified region (default NULL)
 mypartition=""					# user specified partition (default NULL)
-pv4=0						# bool to turn on bcftools to compute pv4 (default: no)
+nopv4=0						# do not compute pv4 (default: no)
 noindeldepth=0					# bool which, if on, doesnt include include indel depth in SDP (default: no) (note: asteriks in mpileup are included irrespective of this flag)
 rdplusad=0					# bool which, if on, uses RD+AD rather than SDP for total depth (default: no)
 hybrid=0					# bool which, if on, uses RD+AD for first sample (normal) and SDP for total depth for all other samples (default: no)
@@ -71,7 +71,7 @@ Options:
   --s1adpp		for filtered report, require the sample 1 (normal) alt depth per position to be less than this (default: 3) (note: this NOT S1 AD per mismatch but, rather, per position)
   --minaf		for PD.report file, Sgt1MAXFREQ is greater than this
   --noclean		do not delete tmp intermediate files (default: off)
-  --pv4			run bcftools to compute PV4 (default: off)
+  --nopv4		do not run bcftools to compute PV4 (default: off)
   --noindeldepth	do not include include indel reads in total depth count (SDP) (default: off) 
   			(note: asteriks in mpileup are included irrespective of this flag)
   --rdplusad		use reference-agreeing reads plus alternate-calling reads (RD+AD) rather than total depth (SDP) as input to savi (default: off)
@@ -211,9 +211,9 @@ while [ $# -gt 0 ]; do
 	elif [  "$1" == "-noindeldepth" -o "$1" == "--noindeldepth" ]; then
 		shift; 
 		noindeldepth=1;
-	elif [  "$1" == "-pv4" -o "$1" == "--pv4" ]; then
+	elif [  "$1" == "-nopv4" -o "$1" == "--nopv4" ]; then
 		shift; 
-		pv4=1;
+		nopv4=1;
 	elif [  "$1" == "-debug" -o "$1" == "--debug" ]; then
 		shift; 
 		debug=1; 
@@ -269,7 +269,7 @@ echo "[java memory] "$java_memory
 echo "[index] "$SGE_TASK_ID
 echo "[partition] "$mypartition
 echo "[cleanup bool] "$cleanup
-echo "[pv4 bool] "$pv4
+echo "[nopv4 bool] "$nopv4
 echo "[debug bool] "$debug
 echo "[no indel depth bool] "$noindeldepth
 echo "[RD+AD bool] "$rdplusad
@@ -657,7 +657,7 @@ if [[ $stepstr == *5* ]]; then
 				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.rev-PDfilter.txt
 
 				# ugly hack to get PV4, if report nonzero size
-				if [ -s ${outputdir2}/report.coding.PDfilter.txt ]; then
+				if [ -s ${outputdir2}/report.coding.PDfilter.txt -a $nopv4 -eq 0 ]; then 
 
 					if (( $( cat ${outputdir2}/report.coding.PDfilter.txt | sed '1d' | wc -l ) > 5000 )); then 
 						echo "WARNING: report too long to run bcftools per variant"; 
