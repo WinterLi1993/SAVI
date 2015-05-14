@@ -89,10 +89,6 @@ Options:
   --precision		the SAVI precision (default: 0)
   --help		print this message and exit
 
-Example:
-
-$0 --bam normal.bam,tumor.bam --outputdir . --index 1 --ref /my/ref.fasta
-
 Notes:
 
 This scripts assumes that $required_programs are in your PATH.
