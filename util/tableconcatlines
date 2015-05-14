@@ -1,0 +1,58 @@
+#!/usr/bin/env perl
+
+# About:
+# join two text files using the first column of the first file as the "key"
+
+my $usage = <<_EOUSAGE_;
+
+################################################################################################################
+#
+#	Perform a unix-style join on two files, using the first column of the first file as the "key".
+#	Unlike unix join, the files need not be sorted.
+#
+#	Usage:
+#
+#	tableconcatlines file1 file2
+#
+#	Example:
+#	
+#	Suppose
+#	
+#	\$ cat example/fileA.txt
+#	1	a
+#	2	c
+#	X	asdf
+#	
+#	\$ cat example/fileB.txt
+#	1	b
+#	2	a
+#	Y	123
+#	
+#	Then
+#	\$ tableconcatlines example/fileA.txt example/fileB.txt 
+#	1	a	b
+#	2	c	a
+#	X	asdf
+#
+#	Author:
+#
+# 	V Trifonov 2012. contact: vladot\@c2b2.columbia.edu
+#  
+################################################################################################################
+
+_EOUSAGE_
+
+if ( $ARGV[0] eq "-h" || $ARGV[0] eq "-help" || $ARGV[0] eq "--help" || scalar(@ARGV) == 0 ) { print $usage; exit; }
+
+%h = map {/(\S*)\s(.*)/; $1 => $2} split(/\n/, `cat $ARGV[1]`);
+
+open $ifile, '<', $ARGV[0];
+
+while (<$ifile>) 
+{
+	/^(\S*)/;
+	chop;
+	print $_."\t".$h{$1}."\n";
+}
+
+close $ifile;
