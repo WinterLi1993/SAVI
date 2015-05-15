@@ -168,9 +168,9 @@ def get_arg():
 	and tell this script which sample to use (--sampleindex flag) in the vcf 
 	as well as which regions (--region flag).
 	Notes: This wrapper needs to find the savi binaries in order to function properly. 
-	It assumes they are in a directory called savi/ in the same folder where this script resides.
+	It assumes they are in a directory called bin/ in the same folder where this script resides.
 	If this is not the case, you can supply the path.
-	You must also supply a starting prior---there are some available to use in the savi/ directory mentioned above---and
+	You must also supply a starting prior---there are some available to use in the bin/ directory mentioned above---and
 	a temporary directory for the script to work in.
 	(If you don't, it will make a folder tmp/ in the cwd and work there)
 	If you want to run the script in the style of the old savi (not recommended), you can supply a comma-delimited list of (1,q,v,t) files instead of a vcf.
@@ -192,7 +192,7 @@ def get_arg():
 	parser.add_argument("-n", "--name",						default="sample",		help="the name of your sample. Default: sample")
 	parser.add_argument("-j", "--iteration",	type=int,			default=10,			help="number of iterations. Default: 10")
 	parser.add_argument("-p", "--prior",										help="first prior (e.g., \"unif_prior01\")")
-	parser.add_argument("-b", "--bin",						default = script_dir + "/savi",	help="directory where the savi binaries reside. Default: [scriptdir]/savi")
+	parser.add_argument("-b", "--bin",						default = script_dir + "/bin",	help="directory where the savi binaries reside. Default: [scriptdir]/bin")
 	parser.add_argument("-o", "--outputdir",					default = cwdir + "/tmp", 	help="output directory. Default: [cwd]/tmp")
 	parser.add_argument("-q", "--sge",						action="store_true",		help="qsub commands with SGE. Default: off")
 	parser.add_argument("-l", "--sgelog",						default = cwdir + "/log", 	help="for SGE only. Default: [cwd]/log")
@@ -212,8 +212,8 @@ def get_arg():
 
 	# print example command 
 	if ( args.example ):
-		my_example = " -v -n test -j 5 -p ../savi/unif_prior01 -o dir_prior -i test.vcf.bgz -r 1:16000-17000,1:18000-18500,1:19000-20000\n\n" + \
-			     "This would run 5 iterations of prior building starting with savi/unif_prior01.\n" + \
+		my_example = " -v -n test -j 5 -p ../bin/unif_prior01 -o dir_prior -i test.vcf.bgz -r 1:16000-17000,1:18000-18500,1:19000-20000\n\n" + \
+			     "This would run 5 iterations of prior building starting with bin/unif_prior01.\n" + \
 			     "The raw material would be the first sample in test.vcf.bgz, regions chr1:16000-17000, 18000-18500, and 19000:20000.\n" + \
 			     "The output would be saved in dir_prior/"
 		print( "# " + os.path.basename(__file__) + my_example )

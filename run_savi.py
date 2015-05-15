@@ -424,7 +424,7 @@ def get_arg():
 	parser.add_argument("-n", "--name",						default="sample",		help="the name of your sample. Default: sample")
 	parser.add_argument("-s", "--sample",										help="a comma-delimited list of the sample indices in the vcf on which to run savi (use colons to denote pairwise comparisons (e.g., 1,3:2,4:2 would be 1, 3 minus 2, and 4 minus 2)). If you leave this blank, the script will make all pairwise comparisons")
 	parser.add_argument("-p", "--prior",										help="a comma-delimited list of sample:prior for each sample in the vcf file you are running variants on (e.g., 1:file1,3:file3 if you are running savi on samples 1 and 3)")
-	parser.add_argument("-b", "--bin",						default = script_dir + "/savi",	help="directory where the savi binaries reside. Default: [scriptdir]/savi")
+	parser.add_argument("-b", "--bin",						default = script_dir + "/bin",	help="directory where the savi binaries reside. Default: [scriptdir]/bin")
 	parser.add_argument("-o", "--outputdir",					default = cwdir + "/tmp", 	help="output directory. Default: [cwd]/tmp")
 	# TO DO give these better names, reflecting what they actually are
 	parser.add_argument("--nofilter", 						action="store_true",		help="do not filter according to savi presence. Default: off (i.e., filter)")

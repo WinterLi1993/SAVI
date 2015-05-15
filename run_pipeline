@@ -19,8 +19,8 @@ s1adpp=3					# filter on S1 AD PP less than this - i.e., normal alt depth per po
 minallelefreq=4					# for PD.report, Sgt1MAXFREQ is greater than this
 stepstr=1245					# what steps to run (default: 1,2,4,5 - don't generate prior)
 software=$( dirname $( readlink -m $0 ) )	# directory where to look for scripts
-buildprior=${software}/savi/prior_unif01	# input prior for building a new prior (default: savi/prior_unif01)
-inputprior=${software}/savi/prior_diploid01	# input prior to use by default (default: savi/prior_unif01)
+buildprior=${software}/bin/prior_unif01	# input prior for building a new prior (default: savi/prior_unif01)
+inputprior=${software}/bin/prior_diploid01	# input prior to use by default (default: savi/prior_unif01)
 input_bams=""					# input bam files
 sample_names=""					# sample names in a comma-delimited list
 num_bams=2					# number of input bams (default: 2)
@@ -138,8 +138,8 @@ while [ $# -gt 0 ]; do
 		shift; 
 		software=$1; 
 		# update these paths (hack)
-		buildprior=${software}/savi/prior_unif01	# input prior for building a new prior (default: savi/prior_unif01)
-		inputprior=${software}/savi/prior_diploid01	# input prior to use by default (default: savi/prior_unif01)
+		buildprior=${software}/bin/prior_unif01	# input prior for building a new prior (default: savi/prior_unif01)
+		inputprior=${software}/bin/prior_diploid01	# input prior to use by default (default: savi/prior_unif01)
 		shift
 	elif [  "$1" == "-ref" -o "$1" == "--ref" ]; then
 		shift; 
@@ -308,7 +308,7 @@ for i in $required_programs; do
 	fi;
 done
 for i in $required_savi_programs; do 
-	if [ ! -e ${software}/savi/$i ]; then 
+	if [ ! -e ${software}/bin/$i ]; then 
 		echo -e "ERROR: SAVI/"${i}" not found. Please make sure you've made the binaries:\ncd SAVI/savi\nmake;"; 
 		exit 1
 	fi; 
@@ -369,7 +369,7 @@ else
 		# if partition set
 		if [ ! -z "${mypartition}" ]; then
 			# create a file of ranges, broken by partitions (the fancy perl stuff is just to sort the chrs by number for number-string combos)
-			cat ${ref}.fai | perl -ne 'BEGIN{@myarr=()}{chomp($_); @a=split(/\t/, $_); push(@myarr, $a[0]."\t".$a[1])}END{my @sorted = map { $_->[0] } sort { $a->[1] <=> $b->[1] } map { [$_, $_=~/(\d+)/] } @myarr ; foreach $elt (@sorted) {print $elt."\n"}}' | ${software}/util/partition_genome.pl ${mypartition} > ${outputdir}/range.txt
+			cat ${ref}.fai | perl -ne 'BEGIN{@myarr=()}{chomp($_); @a=split(/\t/, $_); push(@myarr, $a[0]."\t".$a[1])}END{my @sorted = map { $_->[0] } sort { $a->[1] <=> $b->[1] } map { [$_, $_=~/(\d+)/] } @myarr ; foreach $elt (@sorted) {print $elt."\n"}}' | ${software}/bin/partition_genome.pl ${mypartition} > ${outputdir}/range.txt
 		else
 			# create a file of ranges of chrs (not broken by partitions)
 			cat ${ref}.fai | perl -ne 'BEGIN{@myarr=()}{chomp($_); @a=split(/\t/, $_); push(@myarr, $a[0]."\t".$a[1])}END{my @sorted = map { $_->[0] } sort { $a->[1] <=> $b->[1] } map { [$_, $_=~/(\d+)/] } @myarr ; foreach $elt (@sorted) {print $elt."\n"}}' | cut -f1 > ${outputdir}/range.txt
@@ -472,7 +472,7 @@ if [[ $stepstr == *2* ]]; then
 		# add all flag
 		oscanflag=${oscanflag}" --all";
 
-		cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/savi/pileup2multiallele_vcf $oscanflag \
+		cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/bin/pileup2multiallele_vcf $oscanflag \
 		    | tee ${outputdir}/${SGE_TASK_ID}.all.vcf | awk '{ if ($0 ~ /^#/ || toupper($4) != toupper($5)) {print}}' | bgzip > ${outputdir}/${SGE_TASK_ID}.vcf.bgz
 
 		cat ${outputdir}/${SGE_TASK_ID}.all.vcf | bgzip > ${outputdir}/${SGE_TASK_ID}.all.vcf.bgz
@@ -482,7 +482,7 @@ if [[ $stepstr == *2* ]]; then
 
 	# otherwise, just generate variants file
 	else
-		cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/savi/pileup2multiallele_vcf $oscanflag | bgzip > ${outputdir}/${SGE_TASK_ID}.vcf.bgz
+		cat ${outputdir}/tmp_mpile.${SGE_TASK_ID}.txt | ${software}/bin/pileup2multiallele_vcf $oscanflag | bgzip > ${outputdir}/${SGE_TASK_ID}.vcf.bgz
 	fi
 
 	tabix -p vcf ${outputdir}/${SGE_TASK_ID}.vcf.bgz
@@ -660,8 +660,8 @@ if [[ $stepstr == *5* ]]; then
 				vcffilter -f "${filterstring}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.PDfilter.vcf
 				vcffilter -f "${filterstring_reverse}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf
 
-				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.PDfilter.txt
-				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.rev-PDfilter.txt
+				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.PDfilter.vcf | ${software}/bin/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.PDfilter.txt
+				cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.rev-PDfilter.vcf | ${software}/bin/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.rev-PDfilter.txt
 
 				# ugly hack to get PV4, if report nonzero size
 				if [ -s ${outputdir2}/report.coding.PDfilter.txt -a $nopv4 -eq 0 ]; then 
@@ -706,7 +706,7 @@ if [[ $stepstr == *5* ]]; then
 						done >> ${outputdir2}/tmp.txt
 						
 						cat ${outputdir2}/report.coding.PDfilter.txt | awk -F"\t" '{print $1":"$2"_"$3"/"$4"\t"$0}' > ${outputdir2}/tmp.tmp.txt
-						${software}/util/tableconcatlines ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.txt | cut -f2- > ${outputdir2}/report.coding.PDfilter.pv4.txt
+						${software}/bin/tableconcatlines ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.txt | cut -f2- > ${outputdir2}/report.coding.PDfilter.pv4.txt
 						rm ${outputdir2}/tmp.txt ${outputdir2}/tmp.tmp.txt
 
 					fi
@@ -714,8 +714,8 @@ if [[ $stepstr == *5* ]]; then
 			fi
 
 			# turn vcf into human readable, tab delimited report
-			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.txt
-			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf | ${software}/util/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.somatic.txt
+			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | ${software}/bin/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.txt
+			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf | ${software}/bin/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.somatic.txt
 		fi
 
 		myindex=$(($myindex + 1))
