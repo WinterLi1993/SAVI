@@ -19,8 +19,8 @@ s1adpp=3					# filter on S1 AD PP less than this - i.e., normal alt depth per po
 minallelefreq=4					# for PD.report, Sgt1MAXFREQ is greater than this
 stepstr=1245					# what steps to run (default: 1,2,4,5 - don't generate prior)
 software=$( dirname $( readlink -m $0 ) )	# directory where to look for scripts
-buildprior=${software}/bin/prior_unif01	# input prior for building a new prior (default: savi/prior_unif01)
-inputprior=${software}/bin/prior_diploid01	# input prior to use by default (default: savi/prior_unif01)
+buildprior=${software}/bin/prior_unif01		# input prior for building a new prior (default: bin/prior_unif01)
+inputprior=${software}/bin/prior_diploid01	# input prior to use by default (default: bin/prior_unif01)
 input_bams=""					# input bam files
 sample_names=""					# sample names in a comma-delimited list
 num_bams=2					# number of input bams (default: 2)
@@ -84,8 +84,8 @@ Options:
   --ann-genome		name of the SnpEff genome with which to annotate (default: hg19)
   --noncoding		use snpEff to find all transcripts, not just only protein transcripts (default: off)
   --ann-vcf		comma-delimited list of vcfs with which to provide additional annotation (default: none)
-  --buildprior		starting input prior when building the prior (default: savi/prior_unif01)
-  --prior		prior to use if step3 is not run (default: savi/prior_diploid01)
+  --buildprior		starting input prior when building the prior (default: bin/prior_unif01)
+  --prior		prior to use if step3 is not run (default: bin/prior_diploid01)
   --presence		the SAVI presence posterior (default: 1e-6)
   --conf		the SAVI conf (default: 1e-5)
   --precision		the SAVI precision (default: 0)
@@ -138,8 +138,8 @@ while [ $# -gt 0 ]; do
 		shift; 
 		software=$1; 
 		# update these paths (hack)
-		buildprior=${software}/bin/prior_unif01	# input prior for building a new prior (default: savi/prior_unif01)
-		inputprior=${software}/bin/prior_diploid01	# input prior to use by default (default: savi/prior_unif01)
+		buildprior=${software}/bin/prior_unif01		# input prior for building a new prior
+		inputprior=${software}/bin/prior_diploid01	# input prior to use by default
 		shift
 	elif [  "$1" == "-ref" -o "$1" == "--ref" ]; then
 		shift; 
