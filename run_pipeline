@@ -32,6 +32,7 @@ noncoding=0   					# use snpEff to find only all transcripts, not just protein t
 annvcf=""					# annotating vcfs in comma-delimited list (default: none)
 						# common hg19 annotating vcfs in comma-delimited list
 savi_present="1e-6"				# the SAVI presence posterior
+savi_conf="1e-5"				# the SAVI conf
 savi_precision=0				# the SAVI precision, from the Hossein fix
 						# required programs
 # required_programs="java python samtools snpEff.jar bgzip tabix vcffilter bcftools"
@@ -86,6 +87,7 @@ Options:
   --buildprior		starting input prior when building the prior (default: savi/prior_unif01)
   --prior		prior to use if step3 is not run (default: savi/prior_diploid01)
   --presence		the SAVI presence posterior (default: 1e-6)
+  --conf		the SAVI conf (default: 1e-5)
   --precision		the SAVI precision (default: 0)
   --help		print this message and exit
 
@@ -243,6 +245,10 @@ while [ $# -gt 0 ]; do
 	elif [  "$1" == "-presence" -o "$1" == "--presence" ]; then
 		shift; 
 		savi_present=$1; 
+		shift
+	elif [  "$1" == "-conf" -o "$1" == "--conf" ]; then
+		shift; 
+		savi_conf=$1; 
 		shift
 	elif [  "$1" == "-precision" -o "$1" == "--precision" ]; then
 		shift; 
@@ -546,6 +552,7 @@ if [[ $stepstr == *4* ]]; then
 	     --prior ${priorstring} \
 	     --saviprecision ${savi_precision} \
 	     --savipresent ${savi_present} \
+	     --saviconf ${savi_conf} \
 	     --keepfreqfile ${keepfreqfile} \
 	     --outputdir ${outputdir}/savi/out
 
