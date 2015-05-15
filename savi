@@ -41,11 +41,11 @@ required_savi_programs="pileup2multiallele_vcf add_to_info make_qvt savi_poster 
 helpmessage=$( cat <<EOF
 Usage:
 
-$0 --bam [list_of_bam_files] --ref [ref]
+$0 --bams [list_of_bam_files] --ref [ref]
 
 Required Arguments:
 
-  --bam			comma-delimited list of bam files (order should be: normal.bam, tumor.bam) (.bai indices should be present)
+  --bams		comma-delimited list of bam files (order should be: normal.bam, tumor.bam) (.bai indices should be present)
   --ref			faidx-indexed ref
 
 Options:
@@ -63,7 +63,7 @@ Options:
 			"--partition 50000000 --index 1" would refer to chr1:1-50000000 for hg19
 			(default: not used)
   --names		sample names in a comma-delimited list (must be in the order of your bams) (default: off)
-  --compsamp		comma- colon- delimited indices of samples to compare with savi (default: 2:1) (example: 2:1,3:1,3:2)
+  --compsamp		comma- colon- delimited indices of samples to compare with savi (default: everything compared to sample 1) (example: 2:1,3:1,3:2)
   --steps		steps to run (default: 1,2,4,5 (i.e., all except prior generation))
   --memory		the memory for the Java virtual machine in gigabytes (default: 6)
   --mindepth		the minimum read depth required in at least one sample - positions without this wont appear in pileup file (default: 10)
@@ -254,7 +254,7 @@ while [ $# -gt 0 ]; do
 		shift; 
 		savi_precision=$1; 
 		shift
-	elif [  "$1" == "-bam" -o "$1" == "--bam" ]; then
+	elif [  "$1" == "-bams" -o "$1" == "--bams" ]; then
 		shift; 
 		input_bams=$1; 
 		# replace commas w spaces
@@ -267,6 +267,11 @@ while [ $# -gt 0 ]; do
 done
 
 time1=$( date "+%s" )
+
+# update compsamp string if more than 2 samples
+if (($num_bams>2)); then 
+	compsamp=$( for i in $( seq 2 $num_bams ); do echo -n $i":1,"; done | sed 's|,$||' )
+fi
 
 echo "[START] "`date`
 echo "[pwd] "`pwd`
