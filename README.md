@@ -20,6 +20,7 @@ The following programs must be in your `PATH`:
 - [tabix](http://samtools.sourceforge.net/tabix.shtml)
 - [bgzip](http://samtools.sourceforge.net/tabix.shtml)
 - [vcflib](https://github.com/ekg/vcflib)
+- [bcftools](https://samtools.github.io/bcftools/bcftools.html)
 
 **Installation**
 
