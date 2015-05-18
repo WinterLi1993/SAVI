@@ -679,7 +679,7 @@ if [[ $stepstr == *5* ]]; then
 						echo -e "#chromosome:position_ref/alt\tbcftools_qual\tvariant_distance_bias\tmap_qual_0_fraction\tPV4_strand_bias\tPV4_baseQ_bias\tPV4_mapQ_bias\tPV4_tail_distance_bias" > ${outputdir2}/tmp.txt
 						# The point of this awk + tableconcatlines is to join on the common variants and unify the reported indel format (we do it differently than bcftools)
 						cat ${outputdir2}/report.coding.PDfilter.txt | sed '1d' | cut -f1,2,3,4 | while read mychr mypos myref myalt; do 
-							samtools mpileup -g -A -B -q 0 -d 100000 -L 100000 -f ${ref} ${input_bams} -r ${mychr}:${mypos}-${mypos} \
+							samtools mpileup -g -A -B -q 0 -d 100000 -L 100000 -f ${ref} ${input_bams} -r ${mychr}:${mypos}-${mypos} 2> /dev/null \
 									| bcftools call -p 1.1 -A -c - 2> /dev/null \
 									| awk -v ref=${myref} -v alt=${myalt} -v pos=${mypos} -v chr=${mychr} '$0 !~ /^#/{
 										mytmp4=$4; 
