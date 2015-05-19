@@ -728,7 +728,7 @@ if [[ $stepstr == *5* ]]; then
 
 									# if rna bam files
 									if [ ! -z "$input_rna_bams" ]; then 
-										samtools mpileup -A -B -q 0 -d 100000 -L 100000 -f ${ref} ${input_rna_bams} -r ${mychr}:${mypos}-${mypos} 2> /dev/null | ${software}/bin/pileup2multiallele_vcf --includeindels | sed '/^#/d'  >> ${outputdir2}/tmp.rna.vcf
+										samtools mpileup -A -B -q 0 -d 100000 -L 100000 -f ${ref} <( echo ${input_rna_bams} | sed 's|-||g' ) -r ${mychr}:${mypos}-${mypos} 2> /dev/null | ${software}/bin/pileup2multiallele_vcf --includeindels | sed '/^#/d'  >> ${outputdir2}/tmp.rna.vcf
 									fi
 						done
 						
@@ -742,13 +742,20 @@ if [[ $stepstr == *5* ]]; then
 
 							for j in $( seq 1 $num_rna_bams ); do 
 
-								cat ${outputdir2}/tmp.rna.vcf | ${software}/bin/make_qvt -s $j | cut -f2- > ${outputdir2}/tmp.deleteme.txt
+								z=$( echo "${rna_bams}" | cut -d' ' -f${j} )
 
-								if [ -s ${outputdir2}/tmp.deleteme.txt ]; then 
-									cat ${outputdir2}/tmp.deleteme.txt | awk -v sampnum=$j 'BEGIN{print "rna_samp_"sampnum"_tot_depth\trna_samp_"sampnum"_alt_depth"}{print $2"\t"$1}' > ${outputdir2}/tmp.pasteme.${j}.txt; 
+								if [  "$z" == "-" ]; then
+									echo "X" | awk -v sampnum=$j '{print "rna_samp_"sampnum"_tot_depth\trna_samp_"sampnum"_alt_depth"; print "-\t-"}' > ${outputdir2}/tmp.pasteme.${j}.txt; 
 								else
-									echo "X" | awk -v sampnum=$j '{print "rna_samp_"sampnum"_tot_depth\trna_samp_"sampnum"_alt_depth"; print "0\t0"}' > ${outputdir2}/tmp.pasteme.${j}.txt; 
+									cat ${outputdir2}/tmp.rna.vcf | ${software}/bin/make_qvt -s $j | cut -f2- > ${outputdir2}/tmp.deleteme.txt
+
+									if [ -s ${outputdir2}/tmp.deleteme.txt ]; then 
+										cat ${outputdir2}/tmp.deleteme.txt | awk -v sampnum=$j 'BEGIN{print "rna_samp_"sampnum"_tot_depth\trna_samp_"sampnum"_alt_depth"}{print $2"\t"$1}' > ${outputdir2}/tmp.pasteme.${j}.txt; 
+									else
+										echo "X" | awk -v sampnum=$j '{print "rna_samp_"sampnum"_tot_depth\trna_samp_"sampnum"_alt_depth"; print "0\t0"}' > ${outputdir2}/tmp.pasteme.${j}.txt; 
+									fi
 								fi
+
 							done
 
 							paste ${outputdir2}/tmp.key.txt ${outputdir2}/tmp.pasteme.*.txt > ${outputdir2}/tmp.rna.res.txt
