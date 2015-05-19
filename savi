@@ -22,6 +22,7 @@ software=$( dirname $( readlink -m $0 ) )	# directory where to look for scripts
 buildprior=${software}/bin/prior_unif01		# input prior for building a new prior (default: bin/prior_unif01)
 inputprior=${software}/bin/prior_diploid01	# input prior to use by default (default: bin/prior_unif01)
 input_bams=""					# input bam files
+input_rna_bams=""				# input rna bam files
 sample_names=""					# sample names in a comma-delimited list
 num_bams=2					# number of input bams (default: 2)
 compsamp="2:1"					# the indices of sample to compare with savi (default: 2:1 - i.e., tumor vs norm)
@@ -89,6 +90,7 @@ Options:
   --presence		the SAVI presence posterior (default: 1e-6)
   --conf		the SAVI conf (default: 1e-5)
   --precision		the SAVI precision (default: 0)
+  --rnabams		comma-delimited list of rna bam files (.bai indices should be present)
   --help		print this message and exit
 
 Notes:
@@ -261,6 +263,13 @@ while [ $# -gt 0 ]; do
 		input_bams=$( echo $input_bams | sed 's|,| |g' ) 
 		num_bams=$( echo $input_bams | wc -w )
 		shift
+	elif [  "$1" == "-rnabams" -o "$1" == "--rnabams" ]; then
+		shift; 
+		input_rna_bams=$1; 
+		# replace commas w spaces
+		input_rna_bams=$( echo $input_rna_bams | sed 's|,| |g' ) 
+		num_rna_bams=$( echo $input_rna_bams | wc -w )
+		shift
 	else	# if unknown argument, just shift
 		shift
 	fi
@@ -291,10 +300,12 @@ echo "[minimum alt depth (AD) to print variant] "$minad
 echo "[savi steps to run] "$stepstr
 echo "[software directory] "$software
 echo "[input bams] "$input_bams
+echo "[input rna bams] "$input_rna_bams
 echo "[input prior for building prior from scratch] "$buildprior
 echo "[default input prior] "$inputprior
 echo "[sample names] "$sample_names
 echo "[number of bams] "$num_bams
+echo "[number of rna bams] "$num_rna_bams
 echo "[compsamp flag] "$compsamp
 echo "[read depth cutoff] "$cutoff
 echo "[annotating genome for snpEff] "$anngenome
@@ -678,6 +689,10 @@ if [[ $stepstr == *5* ]]; then
 
 						echo -e "#chromosome:position_ref/alt\tbcftools_qual\tvariant_distance_bias\tmap_qual_0_fraction\tPV4_strand_bias\tPV4_baseQ_bias\tPV4_mapQ_bias\tPV4_tail_distance_bias" > ${outputdir2}/tmp.txt
 						# The point of this awk + tableconcatlines is to join on the common variants and unify the reported indel format (we do it differently than bcftools)
+
+						# make sure this doesn't exist
+						rm -f ${outputdir2}/tmp.rna.vcf
+
 						cat ${outputdir2}/report.coding.PDfilter.txt | sed '1d' | cut -f1,2,3,4 | while read mychr mypos myref myalt; do 
 							samtools mpileup -g -A -B -q 0 -d 100000 -L 100000 -f ${ref} ${input_bams} -r ${mychr}:${mypos}-${mypos} 2> /dev/null \
 									| bcftools call -p 1.1 -A -c - 2> /dev/null \
@@ -709,12 +724,41 @@ if [[ $stepstr == *5* ]]; then
 												}
 											}
 										}
-									}';
-						done >> ${outputdir2}/tmp.txt
+									}'; >> ${outputdir2}/tmp.txt
+
+									# if rna bam files
+									if [ ! -z "$input_rna_bams" ]; then 
+										samtools mpileup -A -B -q 0 -d 100000 -L 100000 -f ${ref} ${input_rna_bams} -r ${mychr}:${mypos}-${mypos} 2> /dev/null | ${software}/bin/pileup2multiallele_vcf --includeindels | sed '/^#/d'  >> ${outputdir2}/tmp.rna.vcf
+									fi
+						done
 						
 						cat ${outputdir2}/report.coding.PDfilter.txt | awk -F"\t" '{print $1":"$2"_"$3"/"$4"\t"$0}' > ${outputdir2}/tmp.tmp.txt
 						${software}/bin/tableconcatlines ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.txt | cut -f2- > ${outputdir2}/report.coding.PDfilter.pv4.txt
-						rm ${outputdir2}/tmp.txt ${outputdir2}/tmp.tmp.txt
+
+						# if rna bam files
+						if [ ! -z "$input_rna_bams" ]; then 
+
+							cat ${outputdir2}/tmp.rna.vcf | awk 'BEGIN{print "#chromosome:position_ref/alt"}{print $1":"$2"_"$4"/"$5}' > ${outputdir2}/tmp.key.txt
+
+							for j in $( seq 1 $num_rna_bams ); do 
+
+								cat ${outputdir2}/tmp.rna.vcf | ${software}/bin/make_qvt -s $j | cut -f2- > ${outputdir2}/tmp.deleteme.txt
+
+								if [ -s ${outputdir2}/tmp.deleteme.txt ]; then 
+									cat ${outputdir2}/tmp.deleteme.txt | awk -v sampnum=$j 'BEGIN{print "rna_samp_"sampnum"_tot_depth\trna_samp_"sampnum"_alt_depth"}{print $2"\t"$1}' > ${outputdir2}/tmp.pasteme.${j}.txt; 
+								else
+									echo "X" | awk -v sampnum=$j '{print "rna_samp_"sampnum"_tot_depth\trna_samp_"sampnum"_alt_depth"; print "0\t0"}' > ${outputdir2}/tmp.pasteme.${j}.txt; 
+								fi
+							done
+
+							paste ${outputdir2}/tmp.key.txt ${outputdir2}/tmp.pasteme.*.txt > ${outputdir2}/tmp.rna.res.txt
+
+							${software}/bin/tableconcatlines ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.rna.res.txt | cut -f2- > ${outputdir2}/report.coding.PDfilter.pv4.rna.txt
+
+						fi
+
+						rm ${outputdir2}/tmp.key.txt ${outputdir2}/tmp.pasteme.*.txt ${outputdir2}/tmp.rna.res.txt ${outputdir2}/tmp.rna.vcf
+						rm ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.txt ${outputdir2}/tmp.deleteme.txt
 
 					fi
 				fi
@@ -723,6 +767,7 @@ if [[ $stepstr == *5* ]]; then
 			# turn vcf into human readable, tab delimited report
 			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | ${software}/bin/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.txt
 			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf | ${software}/bin/vcf2newreport_for_v4.1.C.py ${reportoptions} | sed 's|,|, |g' > ${outputdir2}/report.coding.somatic.txt
+
 		fi
 
 		myindex=$(($myindex + 1))
