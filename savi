@@ -756,14 +756,15 @@ if [[ $stepstr == *5* ]]; then
 							done
 
 							paste ${outputdir2}/tmp.key.txt ${outputdir2}/tmp.pasteme.*.txt > ${outputdir2}/tmp.rna.res.txt
+							cat ${outputdir2}/report.coding.PDfilter.pv4.txt | awk -F"\t" '{print $1":"$2"_"$3"/"$4"\t"$0}' > ${outputdir2}/tmp.tmp.tmp.txt
 							# ${software}/bin/tableconcatlines ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.rna.res.txt | cut -f2- > ${outputdir2}/report.coding.PDfilter.pv4.rna.txt
-							${software}/bin/tableconcatlines ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.rna.res.txt | cut -f2- | awk -F"\t" -v bams="${input_rna_bams}" 'BEGIN{fill=""; split(bams,a," "); for (i in a) {if (a[i]=="-") {x=x"-\t-\t"} else {x=x"0\t0\t"}}}{if (NR==1) {numfields=NF}; if (NF==numfields) {print} else {print $0 x}}' > ${outputdir2}/report.coding.PDfilter.pv4.rna.txt
+							${software}/bin/tableconcatlines ${outputdir2}/tmp.tmp.tmp.txt ${outputdir2}/tmp.rna.res.txt | cut -f2- | awk -F"\t" -v bams="${input_rna_bams}" 'BEGIN{fill=""; split(bams,a," "); for (i in a) {if (a[i]=="-") {x=x"-\t-\t"} else {x=x"0\t0\t"}}}{if (NR==1) {numfields=NF}; if (NF==numfields) {print} else {print $0 x}}' > ${outputdir2}/report.coding.PDfilter.pv4.rna.txt
 
 						fi
 
 						if [ $cleanup -eq 1 ]; then 
 							rm ${outputdir2}/tmp.key.txt ${outputdir2}/tmp.pasteme.*.txt ${outputdir2}/tmp.rna.res.txt ${outputdir2}/tmp.rna.vcf
-							rm ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.txt ${outputdir2}/tmp.deleteme.txt
+							rm  ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.tmp.tmp.txt ${outputdir2}/tmp.txt ${outputdir2}/tmp.deleteme.txt
 						fi
 
 
