@@ -390,6 +390,11 @@ if [ ! -z "${myregion}" ]; then
 		echo "[alert] SnpEff annotating genome changed to "${anngenome}
 	fi
 
+	if [ ! $( cat ${ref}.fai | awk -v region=${myregion} '$1==region{print "true"}' ) ]; then
+		myregion=$( echo $myregion | perl -ne '{ if ($_ =~ m/^chr/) {print substr($_, 3)} else {print "chr".$_ }}' )
+		echo "WARNING: region not found. Switched to:"${myregion}
+	fi
+
 	regionflag="-r ${myregion}";
 	echo "[region] "$myregion
 # not set
