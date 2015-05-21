@@ -330,6 +330,22 @@ for i in $required_savi_programs; do
 	fi; 
 done
 
+
+if [ "$( bcftools --version | head -1 )" != "bcftools 1.2" ]; then
+	echo -e "Must use bcftools v1.2"; 
+	exit 1
+fi
+
+if [ "$( samtools --version | head -1 )" != "samtools 1.2" ]; then
+	echo -e "Must use samtools v1.2"; 
+	exit 1
+fi
+
+if [ "$( java -Xmx1G -jar $( which snpEff.jar ) -version)" != "4.1c" ]; then
+	echo -e "Must use SnpEff v4.1c"; 
+	exit 1
+fi
+
 # check for bams
 for i in $input_bams; do 
 	if [ ! -e ${i} ]; then 
@@ -372,6 +388,11 @@ if [ ! -z "${myregion}" ]; then
 	if [ $myregion == "MT" -o $myregion == "chrMT" ]; then
 		anngenome="GRCh37.71"
 		echo "[alert] SnpEff annotating genome changed to "${anngenome}
+	fi
+
+	if [ ! $( cat ${ref}.fai | awk -v region=${myregion} '$1==region{print "true"}' ) ]; then
+		myregion=$( echo $myregion | perl -ne '{ if ($_ =~ m/^chr/) {print substr($_, 3)} else {print "chr".$_ }}' )
+		echo "WARNING: region not found. Switched to:"${myregion}
 	fi
 
 	regionflag="-r ${myregion}";
@@ -735,14 +756,15 @@ if [[ $stepstr == *5* ]]; then
 							done
 
 							paste ${outputdir2}/tmp.key.txt ${outputdir2}/tmp.pasteme.*.txt > ${outputdir2}/tmp.rna.res.txt
+							cat ${outputdir2}/report.coding.PDfilter.pv4.txt | awk -F"\t" '{print $1":"$2"_"$3"/"$4"\t"$0}' > ${outputdir2}/tmp.tmp.tmp.txt
 							# ${software}/bin/tableconcatlines ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.rna.res.txt | cut -f2- > ${outputdir2}/report.coding.PDfilter.pv4.rna.txt
-							${software}/bin/tableconcatlines ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.rna.res.txt | cut -f2- | awk -F"\t" -v bams="${input_rna_bams}" 'BEGIN{fill=""; split(bams,a," "); for (i in a) {if (a[i]=="-") {x=x"-\t-\t"} else {x=x"0\t0\t"}}}{if (NR==1) {numfields=NF}; if (NF==numfields) {print} else {print $0 x}}' > ${outputdir2}/report.coding.PDfilter.pv4.rna.txt
+							${software}/bin/tableconcatlines ${outputdir2}/tmp.tmp.tmp.txt ${outputdir2}/tmp.rna.res.txt | cut -f2- | awk -F"\t" -v bams="${input_rna_bams}" 'BEGIN{fill=""; split(bams,a," "); for (i in a) {if (a[i]=="-") {x=x"-\t-\t"} else {x=x"0\t0\t"}}}{if (NR==1) {numfields=NF}; if (NF==numfields) {print} else {print $0 x}}' > ${outputdir2}/report.coding.PDfilter.pv4.rna.txt
 
 						fi
 
 						if [ $cleanup -eq 1 ]; then 
 							rm ${outputdir2}/tmp.key.txt ${outputdir2}/tmp.pasteme.*.txt ${outputdir2}/tmp.rna.res.txt ${outputdir2}/tmp.rna.vcf
-							rm ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.txt ${outputdir2}/tmp.deleteme.txt
+							rm  ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.tmp.tmp.txt ${outputdir2}/tmp.txt ${outputdir2}/tmp.deleteme.txt
 						fi
 
 

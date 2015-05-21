@@ -15,12 +15,12 @@ The following programs must be in your `PATH`:
 
 - python 
 - java
-- [Samtools](http://samtools.sourceforge.net)
+- [Samtools](http://samtools.sourceforge.net) v1.2
 - [SnpEff](http://snpeff.sourceforge.net) v4.1 C (i.e., `which snpEff.jar` must return a path)
 - [tabix](http://samtools.sourceforge.net/tabix.shtml)
 - [bgzip](http://samtools.sourceforge.net/tabix.shtml)
 - [vcflib](https://github.com/ekg/vcflib)
-- [bcftools](https://samtools.github.io/bcftools/bcftools.html)
+- [bcftools](https://samtools.github.io/bcftools/bcftools.html) v1.2
 
 **Installation**
 
