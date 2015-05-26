@@ -652,6 +652,8 @@ if [[ $stepstr == *5* ]]; then
 		# if final iteration of loop, convert from vcf to human readable tab-delimited report
 		if [ $myindex -eq $num_vcfs ]; then
 
+			cat ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.all.vcf | ${software}/bin/vcf2fullreport.py > ${outputdir2}/report.unfiltered.txt
+
 			# get useful variants and variants in the coding region. The idea is to capture these:
 			# inframe_deletion *inframe_insertion frameshift_variant* initiator_codon_variant missense_variant* synonymous_variant*
 			# splice_acceptor* splice_donor* splice_region* start_lost* start_gained* stop_gained* stop_lost* stop_retained_variant*
