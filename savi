@@ -331,17 +331,17 @@ for i in $required_savi_programs; do
 done
 
 
-if [ "$( bcftools --version | head -1 )" != "bcftools 1.2" ]; then
+if [ $( bcftools --version | head -1 | awk '$0 !~ /1.2/{print "true"}' ) ]; then
 	echo -e "Must use bcftools v1.2"; 
 	exit 1
 fi
 
-if [ "$( samtools --version | head -1 )" != "samtools 1.2" ]; then
+if [ $( samtools --version | head -1 | awk '$0 !~ /1.2/{print "true"}' ) ]; then
 	echo -e "Must use samtools v1.2"; 
 	exit 1
 fi
 
-if [ "$( java -Xmx1G -jar $( which snpEff.jar ) -version)" != "4.1c" ]; then
+if [ $( java -Xmx1G -jar $( which snpEff.jar ) -version | awk '{if ($0 !~ /4.1/) {print "true"}}' ) ]; then
 	echo -e "Must use SnpEff v4.1c"; 
 	exit 1
 fi
