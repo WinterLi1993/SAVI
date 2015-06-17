@@ -632,7 +632,7 @@ if [[ $stepstr == *5* ]]; then
 
 	# annotate all present variants, somatic variants
 	if [ $noncoding -eq 0 ]; then
-		java -Xmx${java_memory}G -jar $( which snpEff.jar ) ann ${anngenome} -noLog -q -c $( which snpEff.config ) -formatEff -noStats -lof -onlyProtein -canon -no-downstream -no-intergenic -no-upstream -no-utr ${outputdir2}/finalsavi.noN.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_0.all.vcf
+		java -Xmx${java_memory}G -jar $( which snpEff.jar ) ann ${anngenome} -noHgvs -noLog -q -c $( which snpEff.config ) -formatEff -noStats -lof -onlyProtein -canon -no-downstream -no-intergenic -no-upstream -no-utr ${outputdir2}/finalsavi.noN.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_0.all.vcf
 	else
 		java -Xmx${java_memory}G -jar $( which snpEff.jar ) ann ${anngenome} -noLog -q -c $( which snpEff.config ) -formatEff -noStats -lof -canon ${outputdir2}/finalsavi.noN.vcf > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_0.all.vcf
 	fi
