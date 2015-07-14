@@ -136,9 +136,9 @@ if (args.samples):
 	d_samples = {str(k+1) : j for k, j in enumerate(args.samples.split(','))}	
 
 	# did user give more than 9 names? This is not yet supported
-	if len(d_samples) > 9:
-		print("Error: Number of samples greater than 9. The \"--samples\" flag does not support this. As an alternative, use the hack-y util/make_header.py")
-		sys.exit(0)
+# 	if len(d_samples) > 9:
+# 		print("Error: Number of samples greater than 9. The \"--samples\" flag does not support this. As an alternative, use the hack-y util/make_header.py")
+# 		sys.exit(0)
 
 ### Main
 # read file from stdin
@@ -213,10 +213,13 @@ for line in contents:
 			for myfield in sorted(d_savi_info):
 				# match savi fields, which can look like this:
 				# P1_F P2_F
-				match4 = re.search(r'P(\d)(_F)', myfield)
+				# match4 = re.search(r'P(\d)(_F)', myfield)
+				match4 = re.search(r'P(\d{,2})(_F)', myfield)
 				# or this:
 				# PD21_L (assume fewer than 10 samples)
-				match5 = re.search(r'PD(\d)(\d)(_L)', myfield)
+				# assume no double digit comparisons: e.g., 12 vs 1 will succeed but 12 vs 10 will fail
+				# match5 = re.search(r'PD(\d)(\d)(_L)', myfield)
+				match5 = re.search(r'PD(\d{,2})(\d)(_L)', myfield)
 
 				# make this field human readable
 				if (match4): 

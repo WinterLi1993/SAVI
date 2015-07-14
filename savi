@@ -723,6 +723,7 @@ if [[ $stepstr == *5* ]]; then
 						## bug when two lines with same ID
 
 						cat ${outputdir2}/report.coding.PDfilter.txt | awk -F"\t" '{print $1":"$2"_"$3"/"$4"\t"$0}' > ${outputdir2}/tmp.tmp.txt
+						sed 's/[ \t]*$//' ${outputdir2}/report.coding.PDfilter.txt | awk -F"\t" '{print $1":"$2"_"$3"/"$4"\t"$0}' > ${outputdir2}/tmp.tmp.txt
 						ncols=$(cat ${outputdir2}/report.coding.PDfilter.txt | head -1 | awk -F"\t" '{print NF}')
 						${software}/bin/tableconcatlines ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.txt | cut -f2- | awk -F"\t" -v n=$ncols '{if(NF==n+1){print $0"-\t-\t-\t-\t-\t-\t-"}else{print}}' > ${outputdir2}/report.coding.PDfilter.pv4.txt
 
@@ -767,8 +768,8 @@ if [[ $stepstr == *5* ]]; then
 						fi
 
 						if [ $cleanup -eq 1 ]; then 
-							rm ${outputdir2}/tmp.key.txt ${outputdir2}/tmp.pasteme.*.txt ${outputdir2}/tmp.rna.res.txt ${outputdir2}/tmp.rna.vcf
-							rm  ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.tmp.tmp.txt ${outputdir2}/tmp.txt ${outputdir2}/tmp.deleteme.txt
+							rm -f ${outputdir2}/tmp.key.txt ${outputdir2}/tmp.pasteme.*.txt ${outputdir2}/tmp.rna.res.txt ${outputdir2}/tmp.rna.vcf
+							rm -f ${outputdir2}/tmp.tmp.txt ${outputdir2}/tmp.tmp.tmp.txt ${outputdir2}/tmp.txt ${outputdir2}/tmp.deleteme.txt
 						fi
 
 

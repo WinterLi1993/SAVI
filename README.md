@@ -1,3 +1,5 @@
+Status: Active Development
+
 ## SAVI
 SAVI - *statistical algorithm for variant identification* - is a program for calling variants in sequencing data written by Vladimir Trifonov with contributions from Oliver E., Jiguang W., Francesco A., Alex P., and Hossein K.
 
