@@ -111,7 +111,7 @@ def is_savi_info_field(mystring):
 	# no: ##INFO=<ID=S1_P,Number=1,Type=Integer,Description="Savi presence call boolean for sample 1">
 	# no: ##INFO=<ID=S1_PF,Number=1,Type=Float,Description="Savi posterior for presence or absence for sample 1">
 
-	if re.search(r'P(\d)_F', mystring) or re.search(r'PD(\d+)_[UL]', mystring):
+	if re.search(r'P(\d+)_F', mystring) or re.search(r'PD(\d+)_[UL]', mystring):
 		return 1
 	else:
 		return 0
@@ -363,7 +363,7 @@ for line in contents:
 			# this loop should look like:
 			# P1_F P2_F P3_F PD21_L PD21_U PD32_L PD32_U
 
-			if re.search(r'P(\d)_F', myfield):
+			if re.search(r'P(\d+)_F', myfield):
  				line_8 += d_savi_info[myfield] + "\t"
 			elif re.search(r'PD(\d+)_L', myfield):
 				if (d_savi_info[myfield] != "-"):
