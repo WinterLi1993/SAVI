@@ -30,12 +30,24 @@ def main():
 	check_error(args)
 
 	if "1" in args.steps:
-		mystep1 = step1(args, "1")
+		mystep1 = Step1(args, "1")
 		mystep1.run()
 
 	if "2" in args.steps:
-		mystep2 = step1(args, "2")
+		mystep2 = Step2(args, "2")
 		mystep2.run()
+
+	if "3" in args.steps:
+		mystep3 = Step3(args, "3")
+		mystep3.run()
+
+	if "4" in args.steps:
+		mystep4 = Step4(args, "4")
+		mystep4.run()
+
+	if "5" in args.steps:
+		mystep5 = Step5(args, "5")
+		mystep5.run()
 
 # -------------------------------------
 
@@ -54,7 +66,7 @@ def get_arg():
 	parser.add_argument("--bams","-b",						help="comma-delimited list of bam files (by convention list the normal sample first, as in: normal.bam,tumor.bam) (.bai indices should be present)")
 	parser.add_argument("--ref",							help="reference fasta file with faidx index in the same directory")
 	parser.add_argument("--outputdir","-o",			default = cwdir,	help="the output directory (default: cwd)")
-	parser.add_argument("--region","-r",						help="the genomic region to run SAVI on (default: full range) (example: chr1 or chr1:1-50000000)")
+	parser.add_argument("--region","-r",			default = '',	help="the genomic region to run SAVI on (default: full range) (example: chr1 or chr1:1-50000000)")
 	# parser.add_argument("--index",						help="the integer index of the region you want to run SAVI on. By default, 1 refers to the first chromosome in range.txt, 2 to the second, and so on. If you use the partition flag, 1 refers to the first partition, 2 to the second and so on.  (default: 0, which corresponds to the full range)")
 	# parser.add_argument("--partition",						help="Number of bases into which to partition the genome.  Use this flag, only if you want to break your genome into regions smaller than the chr length.  If you use this flag, you must also specify an index. For example, \"--partition 50000000 --index 1\" would refer to chr1:1-50000000 for hg19 (default: not used)")
 	parser.add_argument("--names",							help="sample names in a comma-delimited list, in the corresponding order of your bam files (default: names are numerical indicies)")
@@ -66,6 +78,7 @@ def get_arg():
 	parser.add_argument("--mindepth",	type=int,	default=6,		help="the min tot read depth required in at least one sample - positions without this wont appear in pileup file (default: 10). Where the filtering occurs: samtools mpileup post-processing")
 	parser.add_argument("--minad",		type=int,	default=2,		help="the min alt depth (AD) in at least one sample to output variant (default: 2). Where the filtering occurs: samtools mpileup post-processing")
 	parser.add_argument("--mapqual",	type=int,	default=10,		help="skip alignments with mapQ less than this (default: 10). Where the filtering occurs: samtools mpileup")
+	parser.add_argument("--maxdepth",	type=int,	default=100000,		help="max per-BAM depth option for samtools mpileup (default: 100000)")
 	parser.add_argument("--s1adpp",		type=int,	default=3,		help="for filtered report, require the sample 1 (normal) alt depth per position to be less than this (default: 3) (note: this is NOT sample1 alt depth of the given alt but, rather, at the given position). Where the filtering occurs: generating report.coding.somatic")
 	parser.add_argument("--minallelefreq",		type=int,	default=4,	help="Sgt1MAXFREQ (the allele frequency of any sample not including the first one, assumed to be normal) is greater than this (default: 4) Where the filtering occurs: generating the PD.report file.")
 	parser.add_argument("--ann-vcf",						help="comma-delimited list of vcfs with which to provide additional annotation (default: none). Where it's used: SnpSift")
@@ -106,6 +119,7 @@ def get_arg():
 
 	# print args
 	print(args)
+	print
 
 	return args
 
@@ -114,9 +128,6 @@ def get_arg():
 def check_error(args):
 	"""Check for errors, check dependencies """
 
-	# need to check versions
-	# need to print times
-
 	# required programs
 	required_programs = ("java", "python", "samtools", "snpEff.jar", "bgzip", "tabix", "vcffilter", "bcftools")
 	required_savi_programs = ("pileup2multiallele_vcf", "add_to_info", "make_qvt", "savi_poster", "savi_conf", "savi_comp", "savi_poster_accum", "savi_poster_merge", "savi_poster_prt", "savi_unif_prior", "savi_txt2prior")
@@ -124,13 +135,36 @@ def check_error(args):
 	# check for required programs 
 	for j in required_savi_programs:
 		if ( not os.path.isfile(args.scripts + "/bin/" + j) ):
-			print("Can't find " + j + ". Please make sure it's in " + software + "/bin")
+			print("[ERROR] Can't find " + j + ". Please make sure it's in " + software + "/bin")
 			sys.exit(1)
 
 	for j in required_programs:
 		if (not spawn.find_executable(j)):
-			print("Can't find " + j + ". Please add it to your PATH")
+			print("[ERROR] Can't find " + j + ". Please add it to your PATH")
 			sys.exit(1)
+
+	if args.bams:
+		for j in args.bams.split(","):
+			# handle tilde
+			if (not os.path.isfile(os.path.expanduser(j))):
+				print("[ERROR] Can't find input file " + j)
+				sys.exit(1)
+
+			if (not os.path.isfile(os.path.expanduser(j + '.bai'))):
+				print("[ERROR] Can't find input bai index " + j + ".bai")
+				sys.exit(1)
+
+	if args.ref:
+		if (not os.path.isfile(os.path.expanduser(args.ref))):
+			print("[ERROR] Can't find reference file " + args.ref)
+			sys.exit(1)
+
+		if (not os.path.isfile(os.path.expanduser(args.ref + '.fai'))):
+			print("[ERROR] Can't find reference fai index " + args.ref + ".fai")
+			sys.exit(1)
+
+	# need to check versions
+	# need to print times
 
 # -------------------------------------
 
@@ -146,7 +180,34 @@ def generate_compsamp(numsamp):
 
 # -------------------------------------
 
-class step():
+def run_cmd(cmd, bool_verbose, bool_getstdout):
+	"""Run system cmd"""
+
+	if (bool_verbose): 
+		print("[command] " + cmd)
+
+	proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	proc.wait() 
+	# print return code
+	# print(proc.returncode) 
+	# print stdout stderr tuple
+	# proc.communicate()
+
+	(stdout, stderr) =  proc.communicate()
+
+	# if error, print it
+	if stderr:
+		print("ERROR: " + stderr),
+
+	# return stdout
+	if (bool_getstdout): 
+		return stdout.rstrip()
+	else:
+		return "0" # note: this must return a str
+
+# -------------------------------------
+
+class Step(object):
 	"""A parent step class from which step children inherit"""
 	def __init__ (self, args, step_index):
 		self.args = args 
@@ -157,27 +218,43 @@ class step():
 
 # -------------------------------------
 
-class step1(step):
+class Step1(Step):
 	"""A step1 object whose run method converts bams to mpileup"""
+
+	def checkok(self):
+		if not self.args.bams:
+			print("[ERROR] No bam files given as input")
+			sys.exit(1)
+
+		if not self.args.ref:
+			print("[ERROR] No reference given as input")
+			sys.exit(1)
+
+	def run(self):
+		super(Step1, self).run()
+		self.checkok()
+		pileupflag="-A -B -q {} -d {} -L {} -f {}".format(self.args.mapqual, self.args.maxdepth, self.args.maxdepth, self.args.ref)
+		mycmd = "samtools mpileup {} {} {}".format(pileupflag, self.args.region, self.args.bams.replace(',', ' '))
+		run_cmd(mycmd, 1, 1)
 
 # -------------------------------------
 
-class step2(step):
+class Step2(Step):
 	"""A step2 object whose run method converts mpileup to vcf"""
 
 # -------------------------------------
 
-class step3(step):
+class Step3(Step):
 	"""A step3 object whose run method computes prior"""
 
 # -------------------------------------
 
-class step4(step):
+class Step4(Step):
 	"""A step4 object whose run method runs savi proper"""
 
 # -------------------------------------
 
-class step5(step):
+class Step5(Step):
 	"""A step5 object whose run method annotates with SnpEff and generates report"""
 
 # -------------------------------------
