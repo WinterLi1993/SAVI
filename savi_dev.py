@@ -23,11 +23,13 @@ from distutils import spawn
 def main():
 	"""Main block"""
 
-	# get arguments
+	# get arguments dictionary
 	args = get_arg()
 
 	# check for errors, check dependencies
 	check_error(args)
+
+	# if user requests, run the appropriate step
 
 	if "1" in args.steps:
 		mystep1 = Step1(args, "1")
@@ -75,7 +77,7 @@ def get_arg():
 	parser.add_argument("--ann-genome",			default="hg19",		help="name of the SnpEff genome with which to annotate (default: hg19)")
 	parser.add_argument("--memory",		type=int,	default=6,		help="the memory for the (SnpEff) Java virtual machine in gigabytes (default: 6)")
 	parser.add_argument("--scripts",			default=software,	help="location of scripts dir (directory where this script resides - use this option only if qsub-ing with the Oracle Grid Engine)")
-	parser.add_argument("--mindepth",	type=int,	default=6,		help="the min tot read depth required in at least one sample - positions without this wont appear in pileup file (default: 10). Where the filtering occurs: samtools mpileup post-processing")
+	parser.add_argument("--mindepth",	type=int,	default=10,		help="the min tot read depth required in at least one sample - positions without this wont appear in pileup file (default: 10). Where the filtering occurs: samtools mpileup post-processing")
 	parser.add_argument("--minad",		type=int,	default=2,		help="the min alt depth (AD) in at least one sample to output variant (default: 2). Where the filtering occurs: samtools mpileup post-processing")
 	parser.add_argument("--mapqual",	type=int,	default=10,		help="skip alignments with mapQ less than this (default: 10). Where the filtering occurs: samtools mpileup")
 	parser.add_argument("--maxdepth",	type=int,	default=100000,		help="max per-BAM depth option for samtools mpileup (default: 100000)")
@@ -93,6 +95,7 @@ def get_arg():
 	parser.add_argument("--noindeldepth",	action="store_true",			help="do not include include indel reads in total depth count (SDP) (default: off) (note: asteriks in mpileup are included irrespective of this flag). Where it's used: step 2")
 	parser.add_argument("--rdplusad",	action="store_true",			help="use reference-agreeing reads plus alternate-calling reads (RD+AD) rather than total depth (SDP) as input to savi (default: off). Where it's used: step 2")
 	# parser.add_argument("--hybrid",	action="store_true",			help="as input to savi, use reference-agreeing reads plus alternate-calling reads (RD+AD) for first sample (normal) and SDP for other samples (default: off) (note: this flag changes read depths on positions where there are multiallelic variants)")
+	parser.add_argument("--index",				default="0",		help="an index used in naming of output files (default: 0)")
 	parser.add_argument("--noncoding",	action="store_true",			help="use snpEff to find all transcripts, not just only protein transcripts (default: off). Where it's used: step 5")
 	parser.add_argument("--noclean",	action="store_true",			help="do not delete temporary intermediate files (default: off)")
 	parser.add_argument("--debug",		action="store_true",			help="echo commands (default: off)")
@@ -112,6 +115,7 @@ def get_arg():
 	# add key-value pairs to the args dict
 	vars(args)['numsamp'] = numsamp 
 	vars(args)['cwd'] = cwdir
+	vars(args)['bin'] = args.scripts + "/bin" 
 	# if user didn't define compsamp, set it
 	if not args.compsamp: vars(args)['compsamp'] = generate_compsamp(numsamp)
 
@@ -134,8 +138,8 @@ def check_error(args):
 
 	# check for required programs 
 	for j in required_savi_programs:
-		if ( not os.path.isfile(args.scripts + "/bin/" + j) ):
-			print("[ERROR] Can't find " + j + ". Please make sure it's in " + software + "/bin")
+		if ( not os.path.isfile(args.bin + "/" + j) ):
+			print("[ERROR] Can't find " + j + ". Please make sure it's in " + args.bin)
 			sys.exit(1)
 
 	for j in required_programs:
@@ -143,6 +147,7 @@ def check_error(args):
 			print("[ERROR] Can't find " + j + ". Please add it to your PATH")
 			sys.exit(1)
 
+	# check for existence of bam files
 	if args.bams:
 		for j in args.bams.split(","):
 			# handle tilde
@@ -154,6 +159,7 @@ def check_error(args):
 				print("[ERROR] Can't find input bai index " + j + ".bai")
 				sys.exit(1)
 
+	# check for existence of reference
 	if args.ref:
 		if (not os.path.isfile(os.path.expanduser(args.ref))):
 			print("[ERROR] Can't find reference file " + args.ref)
@@ -169,8 +175,9 @@ def check_error(args):
 # -------------------------------------
 
 def generate_compsamp(numsamp):
-	"""Generate sample comparison string"""
+	"""Generate sample comparison string, which determines which samples are compared to which"""
 
+	# by default, everything is compared to sample 1, which is assumed to be 'normal' (i.e., not tumor)
 	if (numsamp == 1):
 		return '1'
 	elif (numsamp > 1):
@@ -181,8 +188,9 @@ def generate_compsamp(numsamp):
 # -------------------------------------
 
 def run_cmd(cmd, bool_verbose, bool_getstdout):
-	"""Run system cmd"""
+	"""Run system command"""
 
+	# if verbose, print command
 	if (bool_verbose): 
 		print("[command] " + cmd)
 
@@ -197,7 +205,7 @@ def run_cmd(cmd, bool_verbose, bool_getstdout):
 
 	# if error, print it
 	if stderr:
-		print("ERROR: " + stderr),
+		print("STDERROR: " + stderr),
 
 	# return stdout
 	if (bool_getstdout): 
@@ -209,12 +217,28 @@ def run_cmd(cmd, bool_verbose, bool_getstdout):
 
 class Step(object):
 	"""A parent step class from which step children inherit"""
+
 	def __init__ (self, args, step_index):
+		"""initialize step object"""
+		# set arguments dictionary
 		self.args = args 
+		# set step index
 		self.step_index = step_index 
 
 	def run(self):
+		"""the run method, meant to be overridden by the children"""
 		print('[STEP ' + self.step_index + ']')
+
+	def check_file_exists(self, myfile):
+		"""check for existence of output file"""
+
+		if (os.path.isfile(myfile)):
+			if (os.path.getsize(myfile) == 0):
+				print(myfile + " is empty. Exiting")
+				sys.exit(1)
+		else:
+			print("Can't find " + myfile + ". Exiting.")
+			sys.exit(1)
 
 # -------------------------------------
 
@@ -222,6 +246,8 @@ class Step1(Step):
 	"""A step1 object whose run method converts bams to mpileup"""
 
 	def checkok(self):
+		"""check if everything's ok - i.e., inputs exist"""
+
 		if not self.args.bams:
 			print("[ERROR] No bam files given as input")
 			sys.exit(1)
@@ -230,17 +256,157 @@ class Step1(Step):
 			print("[ERROR] No reference given as input")
 			sys.exit(1)
 
+	# override parent's run method
 	def run(self):
+		"""The run method calls shell(system) commands to do step1 - namely, it calls samtools mpileup to convert bam to mpileup"""
+
+		# define input and output attributes
+		self.input = self.args.bams
+		self.output = self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt"
+
+		# run parent's run method
 		super(Step1, self).run()
+		# check if there are errors
 		self.checkok()
+		# define pileup file
+		# note the -d flag: "max per-BAM depth to avoid excessive memory usage [250]." 
+		# The default of 250 is way too low, so we jack it up
 		pileupflag="-A -B -q {} -d {} -L {} -f {}".format(self.args.mapqual, self.args.maxdepth, self.args.maxdepth, self.args.ref)
-		mycmd = "samtools mpileup {} {} {}".format(pileupflag, self.args.region, self.args.bams.replace(',', ' '))
-		run_cmd(mycmd, 1, 1)
+
+		# define command to run
+
+		# first a line of awk: we want only lines where normal has depth > cutoff
+		# and at least one of the tumor samples has depth > cutoff
+		# and we want only variants
+		awkcmd = "awk -v num=" + str(self.args.numsamp) + " -v cutoff=" + str(self.args.mindepth) + " -v minad=" + str(self.args.minad) + """ '{
+			# reduce pileup by only printing variants
+
+			myflag=0; # flag to print line
+
+			# loop thro samples
+			for (i = 1; i <= num-1; i++) 
+			{
+				# only consider if sample depth greater than or eq to cutoff
+				if ($(4+i*3) >= cutoff) 
+				{
+					# get read string
+					mystr=$(5+i*3); 
+					# eliminate read starts with qual scores ACTG (e.g., stuff like ^A ^C etc)
+					gsub(/\^[ACTGNactgn+-]/,"",mystr); 
+					# count ACTGN mismatches
+					altdepth = gsub(/[ACTGNactgn]/,"",mystr); 
+					# if sufficient number of mismatches, flag line to print
+					if (altdepth >= minad) 
+					{
+						myflag=1; break;
+					}
+				}
+			}
+
+			# if only one sample, print if depth >= cutoff
+			if (num==1 && $4 >= cutoff) 
+			{
+				print;
+			}
+
+			# if multiple samples, print if sample one has depth AND myflag
+			else if (num>1 && $4 >= cutoff && myflag) 
+			{
+				print;
+			}
+		}'"""
+
+		# if make prior step, modify awk command to generate all positions in the mpileup, variants and non-variants alike
+		if "3" in self.args.steps:
+			awkcmd = "awk -v num=" + str(self.args.numsamp) + " -v cutoff=" + str(self.args.mindepth) + """ '{
+				true=0; 
+				for (i = 1; i <= num-1; i++) 
+				{
+					if ($(4+i*3) >= cutoff) {true=1}
+				}; 
+				if (num==1 && $4 >= cutoff) 
+				{
+					print;
+				}
+				else if (num>1 && $4 >= cutoff && true)
+				{
+					print;
+				}
+			}'"""
+
+		# command: samtools plus awk
+		mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, self.args.region, self.args.bams.replace(',', ' '), awkcmd, self.output)
+		# run it
+		run_cmd(mycmd, self.args.debug, 1)
+
+		# check if output file nonzero size
+		super(Step1, self).check_file_exists(self.output)
 
 # -------------------------------------
 
 class Step2(Step):
 	"""A step2 object whose run method converts mpileup to vcf"""
+
+	# override parent's run method
+	def run(self):
+		"""The run method calls shell(system) commands to do step2 - namely, it converts mpileup to vcf"""
+
+		# define input and output attributes
+		self.input = self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt"
+		self.output = self.args.outputdir + "/" + self.args.index + ".vcf.bgz"
+
+		# run parent's run method
+		super(Step2, self).run()
+
+		# check if input file nonzero size
+		super(Step2, self).check_file_exists(self.input)
+
+		# define command to run
+
+		# first, define flag for pileup2multiallele_vcf (nicknamed oscan)
+		# addresses a problem that samtools mpileup does not include indels in the total read count (with the exception of *s)
+		# so add indel depths to SDP
+		oscanflag="--cutoff " + str(self.args.minad) + " --header --includeindels"
+
+		# if requested, don't include indel reads in total depth count
+		if (self.args.noindeldepth):
+			oscanflag="--cutoff " + str(self.args.minad) + " --header"
+
+		# if make prior, need to generate all position vcf (variants and non-variants)
+		if "3" in self.args.steps:
+
+			# add --all to flag
+			oscanflag += " --all"
+
+			# command: pileup2multiallele_vcf
+			awkcmd = """awk '{ if ($0 ~ /^#/ || toupper($4) != toupper($5)) {print}}'"""
+			allvariants = self.args.outputdir + "/" + self.args.index + ".all.vcf"
+			mycmd = "cat {} | {}/pileup2multiallele_vcf {} | tee {} | {} | bgzip > {}".format(self.input, self.args.bin, oscanflag, allvariants, awkcmd, self.output)
+			# run it
+			run_cmd(mycmd, self.args.debug, 1)
+
+			# zip and tabix all variants file, then remove unzipped file
+			mycmd = "cat {} | bgzip > {}.bgz; rm {}; tabix -p vcf {}.bgz".format(allvariants, allvariants, allvariants, allvariants)
+			run_cmd(mycmd, self.args.debug, 1)
+
+		# otherwise, just generate variants file
+		else:
+			mycmd = "cat {} | {}/pileup2multiallele_vcf {} | bgzip > {}".format(self.input, self.args.bin, oscanflag, self.output)
+			run_cmd(mycmd, self.args.debug, 1)
+
+		# tabix variants
+		mycmd = "tabix -p vcf {}".format(self.output)
+		run_cmd(mycmd, self.args.debug, 1)
+
+		# if empty
+		# if [ $( zcat ${outputdir}/${SGE_TASK_ID}.vcf.bgz | sed '/^#/d' | head | wc -l ) == 0 ]; then
+		# 	echo "[HALT SCRIPT] vcf file is empty"
+		# 	exit 0;
+		# fi
+
+		# if [ $cleanup -eq 1 ]; then 
+		# 	rm -f ${outputdir}/tmp_mpile.${SGE_TASK_ID}.*
+		# fi
 
 # -------------------------------------
 
