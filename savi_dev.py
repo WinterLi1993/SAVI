@@ -187,6 +187,16 @@ def generate_compsamp(numsamp):
 
 # -------------------------------------
 
+def generate_priorstr(compsamp, priorpath):
+	"""Generate prior string for run_savi.py"""
+
+	# if run step3, create prior string for priors specified in compsamp
+	# if compsamp="2:1", it should look like this - 1:${outputdir}/savi/prior1/prior,2:${outputdir}/savi/prior2/prior
+	# if not step3, use diploid prior by default
+	return ",".join(["%s:%s" % (k, priorpath) for k in sorted(set(compsamp.replace(':', ',').split(',')))])
+
+# -------------------------------------
+
 def run_cmd(cmd, bool_verbose, bool_getstdout):
 	"""Run system command"""
 
@@ -215,6 +225,19 @@ def run_cmd(cmd, bool_verbose, bool_getstdout):
 
 # -------------------------------------
 
+def check_file_exists_and_nonzero(myfile):
+	"""check for existence and nonzero-ness of output file"""
+
+	if (os.path.isfile(myfile)):
+		if (os.path.getsize(myfile) == 0):
+			print(myfile + " is empty. Exiting")
+			sys.exit(1)
+	else:
+		print("Can't find " + myfile + ". Exiting.")
+		sys.exit(1)
+
+# -------------------------------------
+
 class Step(object):
 	"""A parent step class from which step children inherit"""
 
@@ -228,17 +251,6 @@ class Step(object):
 	def run(self):
 		"""the run method, meant to be overridden by the children"""
 		print('[STEP ' + self.step_index + ']')
-
-	def check_file_exists(self, myfile):
-		"""check for existence of output file"""
-
-		if (os.path.isfile(myfile)):
-			if (os.path.getsize(myfile) == 0):
-				print(myfile + " is empty. Exiting")
-				sys.exit(1)
-		else:
-			print("Can't find " + myfile + ". Exiting.")
-			sys.exit(1)
 
 # -------------------------------------
 
@@ -340,7 +352,7 @@ class Step1(Step):
 		run_cmd(mycmd, self.args.debug, 1)
 
 		# check if output file nonzero size
-		super(Step1, self).check_file_exists(self.output)
+		check_file_exists_and_nonzero(self.output)
 
 # -------------------------------------
 
@@ -359,7 +371,7 @@ class Step2(Step):
 		super(Step2, self).run()
 
 		# check if input file nonzero size
-		super(Step2, self).check_file_exists(self.input)
+		check_file_exists_and_nonzero(self.input)
 
 		# define command to run
 
@@ -417,6 +429,65 @@ class Step3(Step):
 
 class Step4(Step):
 	"""A step4 object whose run method runs savi proper"""
+
+	# override parent's run method
+	def run(self):
+		"""The run method calls shell(system) commands to do step4 - namely, call savi proper"""
+
+		# define input and output attributes
+		self.input = self.args.outputdir + "/" + self.args.index + ".vcf.bgz"
+		# self.output = 
+
+		# run parent's run method
+		super(Step4, self).run()
+
+		# check if input file nonzero size
+		check_file_exists_and_nonzero(self.input)
+
+		# define a directory for reports
+		reportdir = self.args.outputdir + "/report"
+
+		# if dir doesn't exist, create it
+		if not os.path.exists(reportdir):
+			os.makedirs(reportdir)
+
+		# add this key-value pair to the args dict
+		vars(self.args)['report'] = reportdir
+
+		# define command to run
+
+		# first define flag
+		saviflag=""
+		# if user requests, use AD+RD as tot depth
+		if (self.args.rdplusad):
+			saviflag="--rdplusad"
+
+		# keep freq file is off by default but turns on if no sample comparisions
+		keepfreqfile = "0"
+		if ":" in self.args.compsamp: keepfreqfile = "1"
+
+		# prior string
+		priorstring = generate_priorstr(self.args.compsamp, self.args.prior)
+
+		# command: run_savi 
+		mycmd = self.args.scripts + "/run_savi.py " + saviflag + \
+		    " --input " + self.input + \
+		    " --name savi_" + self.args.index + \
+		    " --sample " + self.args.compsamp + \
+		    " --prior " + priorstring + \
+		    " --saviprecision " + str(self.args.precision) + \
+		    " --savipresent " + self.args.presence + \
+		    " --saviconf " + self.args.conf + \
+		    " --keepfreqfile " + keepfreqfile + \
+		    " --outputdir " + reportdir
+
+		# run it
+		run_cmd(mycmd, self.args.debug, 1)
+
+		# run_savi.py output files:
+		# freqsavi.vcf.bgz - adds presence frequencies to all present variants 
+		# finalsavi.vcf.bgz - add frequency deltas for sample comparisons to all present variants 
+		# finalfilter.vcf - filter all present mutations for somatic variants
 
 # -------------------------------------
 
