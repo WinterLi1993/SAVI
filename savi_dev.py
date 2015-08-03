@@ -8,8 +8,8 @@
 """
 
 __author__ = "Oliver"
-__version__ = "$Revision: 2.0 $"
-__date__ = "$Date: 07-2015 $"
+__version__ = "Revision: 2.0"
+__date__ = "Date: 07-2015"
 
 import argparse
 import sys 
@@ -86,6 +86,7 @@ def get_arg():
 	parser.add_argument("--ann-vcf",						help="comma-delimited list of vcfs with which to provide additional annotation (default: none). Where it's used: SnpSift")
 	parser.add_argument("--buildprior",			default=software + "/bin/prior_unif01",		help="starting input prior when building the prior if step 3 is invoked (default: bin/prior_unif01)")
 	parser.add_argument("--prior",				default=software + "/bin/prior_diploid01",	help="prior to use if step 3 is not run (default: bin/prior_diploid01)")
+	parser.add_argument("--prioriterations",		default="10",		help="the number of iterations for the prior build, if step 3 is run (default: 10)")
 	parser.add_argument("--presence",			default="1e-6",		help="the SAVI presence posterior (default: 1e-6). Where it's used: step 4")
 	parser.add_argument("--conf",				default="1e-5",		help="the SAVI conf (default: 1e-5). Where it's used: step 4")
 	parser.add_argument("--precision",	type=int,	default=0,		help="the SAVI precision (default: 0). Where it's used: step 4")
@@ -187,13 +188,20 @@ def generate_compsamp(numsamp):
 
 # -------------------------------------
 
+def get_uniq_samples(compsamp):
+	"""Return the list of uniq samples from the sample comparison string"""
+
+	return sorted(set(compsamp.replace(':', ',').split(',')))
+
+# -------------------------------------
+
 def generate_priorstr(compsamp, priorpath):
 	"""Generate prior string for run_savi.py"""
 
 	# if run step3, create prior string for priors specified in compsamp
 	# if compsamp="2:1", it should look like this - 1:${outputdir}/savi/prior1/prior,2:${outputdir}/savi/prior2/prior
 	# if not step3, use diploid prior by default
-	return ",".join(["%s:%s" % (k, priorpath) for k in sorted(set(compsamp.replace(':', ',').split(',')))])
+	return ",".join(["%s:%s" % (k, priorpath) for k in get_uniq_samples(compsamp)])
 
 # -------------------------------------
 
@@ -215,7 +223,7 @@ def run_cmd(cmd, bool_verbose, bool_getstdout):
 
 	# if error, print it
 	if stderr:
-		print("STDERROR: " + stderr),
+		print("[stderror] " + stderr),
 
 	# return stdout
 	if (bool_getstdout): 
@@ -425,6 +433,45 @@ class Step2(Step):
 class Step3(Step):
 	"""A step3 object whose run method computes prior"""
 
+	def run(self):
+		"""The run method calls shell(system) commands to do step3 - namely, compute the prior"""
+
+		# run parent's run method
+		super(Step3, self).run()
+
+		# define input and output attributes
+		self.input = self.args.outputdir + "/" + self.args.index + ".all.vcf.bgz"
+		# self.output = 
+
+		# check if input file nonzero size
+		check_file_exists_and_nonzero(self.input)
+
+		# loop through unique samples
+		for i in get_uniq_samples(self.args.compsamp):
+
+			# define a directory for prior
+			priordir = self.args.outputdir + "/priors/prior" + i
+
+			# if dir doesn't exist, create it
+			if not os.path.exists(priordir): os.makedirs(priordir)
+
+			# command: make_prior
+			mycmd = self.args.scripts + "/make_prior.py --verbose --name s" + i + \
+			    " --input " + self.input + \
+			    " --iteration " + self.args.prioriterations + \
+			    " --sampleindex " + i + \
+			    " --prior " + self.args.buildprior + \
+			    " --outputdir " + priordir 
+
+			# run it
+			run_cmd(mycmd, self.args.debug, 1)
+
+		# if run step3, create prior string for priors specified in compsamp
+		# if compsamp="2:1", it should look like this - 1:${outputdir}/savi/prior1/prior,2:${outputdir}/savi/prior2/prior
+		# priorstring=$( for i in $( echo ${compsamp} | sed 's|,|\n|g; s|:|\n|g' | sort -u ); do echo -n "${i}:${outputdir}/savi/prior${i}/prior,"; done | sed 's|,$||'; echo )
+		# if not step3, use diploid prior by default
+		# priorstring=$( for i in $( echo ${compsamp} | sed 's|,|\n|g; s|:|\n|g' | sort -u ); do echo -n "${i}:${inputprior},"; done | sed 's|,$||'; echo )
+
 # -------------------------------------
 
 class Step4(Step):
@@ -448,8 +495,7 @@ class Step4(Step):
 		reportdir = self.args.outputdir + "/report"
 
 		# if dir doesn't exist, create it
-		if not os.path.exists(reportdir):
-			os.makedirs(reportdir)
+		if not os.path.exists(reportdir): os.makedirs(reportdir)
 
 		# add this key-value pair to the args dict
 		vars(self.args)['report'] = reportdir
@@ -464,7 +510,7 @@ class Step4(Step):
 
 		# keep freq file is off by default but turns on if no sample comparisions
 		keepfreqfile = "0"
-		if ":" in self.args.compsamp: keepfreqfile = "1"
+		if not ":" in self.args.compsamp: keepfreqfile = "1"
 
 		# prior string
 		priorstring = generate_priorstr(self.args.compsamp, self.args.prior)
@@ -493,6 +539,10 @@ class Step4(Step):
 
 class Step5(Step):
 	"""A step5 object whose run method annotates with SnpEff and generates report"""
+
+	def run(self):
+		"""The run method calls shell(system) commands to do step5 - namely, annotate the vcf"""
+		pass
 
 # -------------------------------------
 
