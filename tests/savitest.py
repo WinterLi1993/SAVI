@@ -50,5 +50,10 @@ class saviTests(unittest.TestCase):
 		for input, output in inout: 
 			self.assertEqual(output, savi_dev.get_uniq_samples(input))
 
+	def testPriorStr(self):
+		"""Test the generate_priorstr function - should return comma delim string of index:path"""
+
+		self.assertEqual(savi_dev.generate_priorstr('2:1,3:1,3:2','/test/path'), '1:/test/path,2:/test/path,3:/test/path')
+
 if __name__ == "__main__":
 	unittest.main()

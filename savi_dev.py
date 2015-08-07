@@ -30,26 +30,13 @@ def main():
 	check_error(args)
 
 	# if user requests, run the appropriate step
-
-	if "1" in args.steps:
-		mystep1 = Step1(args, "1")
-		mystep1.run()
-
-	if "2" in args.steps:
-		mystep2 = Step2(args, "2")
-		mystep2.run()
-
-	if "3" in args.steps:
-		mystep3 = Step3(args, "3")
-		mystep3.run()
-
-	if "4" in args.steps:
-		mystep4 = Step4(args, "4")
-		mystep4.run()
-
-	if "5" in args.steps:
-		mystep5 = Step5(args, "5")
-		mystep5.run()
+	for i in args.steps:
+		# get the class
+		myclass = globals()['Step' + i]
+		# instantiate a step obj for the class
+		mystep = myclass(args, i)
+		# execute the run method
+		mystep.run()
 
 # -------------------------------------
 
@@ -57,6 +44,7 @@ def get_arg():
 	"""Get Arguments"""
 
 	prog_description = """SAVI is a program for calling variants in high-throughput sequencing data, particularly paired tumor-normal samples. In bioinformatics, \"calling variants\" can mean two different things: (1) simply enumerating all differences between some sequence data and a reference; and (2) determining which of those differences are significant and not likely to be error. SAVI does the later, while a program like Samtools mpileup will do the former. In practice, SAVI is a way of sifting through large amounts of data to pull out the significant mutations using a Bayesian probability model. A common use case is identifying deleterious mutations in cancer, given normal and tumor sequence data---an often-encountered problem in bioinformatics. The output of SAVI is a list of candidate genomic alterations each annotated with a probability of how likely it is to be real. SAVI works with standard bioinformatic file formats. For a complete description of how to use this software, including dependencies and usage examples, see https://github.com/RabadanLab/SAVI"""
+
 	# directory where this script resides 			
 	software = os.path.dirname(os.path.realpath(__file__))
 	# cwd
@@ -113,12 +101,22 @@ def get_arg():
 	if args.bams:
 		numsamp = len(args.bams.split(",")) 
 
+	# if user passes scripts dir, change paths of priors (default and build)
+	if args.scripts:
+		# change default if user didn't supply his own input
+		if args.buildprior == software + "/bin/prior_unif01":
+			args.buildprior = args.scripts + "/bin/prior_unif01"
+		if args.prior == software + "/bin/prior_diploid01":
+			args.prior = args.scripts + "/bin/prior_diploid01"
+
 	# add key-value pairs to the args dict
 	vars(args)['numsamp'] = numsamp 
 	vars(args)['cwd'] = cwdir
 	vars(args)['bin'] = args.scripts + "/bin" 
 	# if user didn't define compsamp, set it
 	if not args.compsamp: vars(args)['compsamp'] = generate_compsamp(numsamp)
+	# generate default prior string
+	vars(args)['priorstring'] = generate_priorstr(args.compsamp, args.prior)
 
 	# need to fix paths if users passed software path manually
 
@@ -133,15 +131,21 @@ def get_arg():
 def check_error(args):
 	"""Check for errors, check dependencies """
 
+	# check step string only goes from 1 to 5 and is all digits 
+	if not args.steps.isdigit():
+		print("[ERROR] invalid step string")
+		sys.exit(1)
+	if set(list(args.steps)).intersection(set(list('67890'))):
+		print("[ERROR] invalid step string (only steps 1 thro 5 exist)")
+		sys.exit(1)
+
 	# required programs
 	required_programs = ("java", "python", "samtools", "snpEff.jar", "bgzip", "tabix", "vcffilter", "bcftools")
 	required_savi_programs = ("pileup2multiallele_vcf", "add_to_info", "make_qvt", "savi_poster", "savi_conf", "savi_comp", "savi_poster_accum", "savi_poster_merge", "savi_poster_prt", "savi_unif_prior", "savi_txt2prior")
 
 	# check for required programs 
 	for j in required_savi_programs:
-		if ( not os.path.isfile(args.bin + "/" + j) ):
-			print("[ERROR] Can't find " + j + ". Please make sure it's in " + args.bin)
-			sys.exit(1)
+		check_path(args.bin + "/" + j)
 
 	for j in required_programs:
 		if (not spawn.find_executable(j)):
@@ -151,27 +155,26 @@ def check_error(args):
 	# check for existence of bam files
 	if args.bams:
 		for j in args.bams.split(","):
-			# handle tilde
-			if (not os.path.isfile(os.path.expanduser(j))):
-				print("[ERROR] Can't find input file " + j)
-				sys.exit(1)
-
-			if (not os.path.isfile(os.path.expanduser(j + '.bai'))):
-				print("[ERROR] Can't find input bai index " + j + ".bai")
-				sys.exit(1)
+			check_path(j)
+			check_path(j + '.bai')
 
 	# check for existence of reference
 	if args.ref:
-		if (not os.path.isfile(os.path.expanduser(args.ref))):
-			print("[ERROR] Can't find reference file " + args.ref)
-			sys.exit(1)
-
-		if (not os.path.isfile(os.path.expanduser(args.ref + '.fai'))):
-			print("[ERROR] Can't find reference fai index " + args.ref + ".fai")
-			sys.exit(1)
+		check_path(args.ref)
+		check_path(args.ref + '.fai')
 
 	# need to check versions
 	# need to print times
+
+# -------------------------------------
+
+def check_path(myfile):
+	"""Check for the existence of a file"""
+
+	# expanduser handle tilde
+	if (not os.path.isfile(os.path.expanduser(myfile))):
+		print("[ERROR] Can't find the file " + myfile)
+		sys.exit(1)
 
 # -------------------------------------
 
@@ -464,7 +467,8 @@ class Step3(Step):
 			    " --outputdir " + priordir 
 
 			# run it
-			run_cmd(mycmd, self.args.debug, 1)
+			myout = run_cmd(mycmd, self.args.debug, 1)
+			if (self.args.debug): print(myout)
 
 		# if run step3, create prior string for priors specified in compsamp
 		# if compsamp="2:1", it should look like this - 1:${outputdir}/savi/prior1/prior,2:${outputdir}/savi/prior2/prior
@@ -512,15 +516,12 @@ class Step4(Step):
 		keepfreqfile = "0"
 		if not ":" in self.args.compsamp: keepfreqfile = "1"
 
-		# prior string
-		priorstring = generate_priorstr(self.args.compsamp, self.args.prior)
-
 		# command: run_savi 
-		mycmd = self.args.scripts + "/run_savi.py " + saviflag + \
+		mycmd = self.args.scripts + "/run_savi.py --verbose " + saviflag + \
 		    " --input " + self.input + \
 		    " --name savi_" + self.args.index + \
 		    " --sample " + self.args.compsamp + \
-		    " --prior " + priorstring + \
+		    " --prior " + self.args.priorstring + \
 		    " --saviprecision " + str(self.args.precision) + \
 		    " --savipresent " + self.args.presence + \
 		    " --saviconf " + self.args.conf + \
@@ -528,7 +529,8 @@ class Step4(Step):
 		    " --outputdir " + reportdir
 
 		# run it
-		run_cmd(mycmd, self.args.debug, 1)
+		myout = run_cmd(mycmd, self.args.debug, 1)
+		if (self.args.debug): print(myout)
 
 		# run_savi.py output files:
 		# freqsavi.vcf.bgz - adds presence frequencies to all present variants 
