@@ -23,6 +23,8 @@ from distutils import spawn
 def main():
 	"""Main block"""
 
+	# print(globals())
+
 	# get arguments dictionary
 	args = get_arg()
 
@@ -31,7 +33,7 @@ def main():
 
 	# if user requests, run the appropriate step
 	for i in args.steps:
-		# get the class
+		# get the class from the classes in the current script
 		myclass = globals()['Step' + i]
 		# instantiate a step obj for the class
 		mystep = myclass(args, i)
@@ -298,6 +300,8 @@ class Step1(Step):
 
 		# define command to run
 
+		# **TO DO**: port this awk to Python
+
 		# first a line of awk: we want only lines where normal has depth > cutoff
 		# and at least one of the tumor samples has depth > cutoff
 		# and we want only variants
@@ -338,6 +342,8 @@ class Step1(Step):
 				print;
 			}
 		}'"""
+
+		# **TO DO**: port this awk to Python
 
 		# if make prior step, modify awk command to generate all positions in the mpileup, variants and non-variants alike
 		if "3" in self.args.steps:
