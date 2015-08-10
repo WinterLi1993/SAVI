@@ -55,5 +55,18 @@ class saviTests(unittest.TestCase):
 
 		self.assertEqual(savi_dev.generate_priorstr('2:1,3:1,3:2','/test/path'), '1:/test/path,2:/test/path,3:/test/path')
 
+	def testDefaultPrior(self):
+		"""Test that diploid prior is used by default"""
+
+		# note that this messes up the arguments for the test script
+		(args, parser) = savi_dev.get_arg()
+		# print(myargs.priorstring)
+		assert 'prior_diploid01' in args.priorstring
+
 if __name__ == "__main__":
-	unittest.main()
+
+	# unittest.main()
+
+	# hardwire verbose == on option (http://stackoverflow.com/questions/13034207/unittest-increase-modules-verbosity-when-tested)
+	suite = unittest.TestLoader().loadTestsFromTestCase(saviTests)
+	unittest.TextTestRunner(verbosity=2).run(suite)

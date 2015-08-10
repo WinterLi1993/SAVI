@@ -26,10 +26,10 @@ def main():
 	# print(globals())
 
 	# get arguments dictionary
-	args = get_arg()
+	(args, parser) = get_arg()
 
 	# check for errors, check dependencies
-	check_error(args)
+	check_error(args, parser)
 
 	# if user requests, run the appropriate step
 	for i in args.steps:
@@ -58,14 +58,14 @@ def get_arg():
 	parser.add_argument("--bams","-b",						help="comma-delimited list of bam files (by convention list the normal sample first, as in: normal.bam,tumor.bam) (.bai indices should be present)")
 	parser.add_argument("--ref",							help="reference fasta file with faidx index in the same directory")
 	parser.add_argument("--outputdir","-o",			default = cwdir,	help="the output directory (default: cwd)")
-	parser.add_argument("--region","-r",			default = '',	help="the genomic region to run SAVI on (default: full range) (example: chr1 or chr1:1-50000000)")
+	parser.add_argument("--region","-r",			default = '',		help="the genomic region to run SAVI on (default: full range) (example: chr1 or chr1:1-50000000)")
 	# parser.add_argument("--index",						help="the integer index of the region you want to run SAVI on. By default, 1 refers to the first chromosome in range.txt, 2 to the second, and so on. If you use the partition flag, 1 refers to the first partition, 2 to the second and so on.  (default: 0, which corresponds to the full range)")
 	# parser.add_argument("--partition",						help="Number of bases into which to partition the genome.  Use this flag, only if you want to break your genome into regions smaller than the chr length.  If you use this flag, you must also specify an index. For example, \"--partition 50000000 --index 1\" would refer to chr1:1-50000000 for hg19 (default: not used)")
 	parser.add_argument("--names",							help="sample names in a comma-delimited list, in the corresponding order of your bam files (default: names are numerical indicies)")
 	parser.add_argument("--compsamp","-c",						help="comma-delimited list of colon-delimited indices of samples to compare with savi (default: everything compared to sample 1) (example: 2:1 would compare the second bam file to the first) (example: 2:1,3:1,3:2 would compare the second to the first, the third to the first, and the third to the second)")
 	parser.add_argument("--steps",				default="1245",		help="steps to run (default: 1,2,4,5 (i.e., all except prior generation))")
-	parser.add_argument("--ann-genome",			default="hg19",		help="name of the SnpEff genome with which to annotate (default: hg19)")
-	parser.add_argument("--memory",		type=int,	default=6,		help="the memory for the (SnpEff) Java virtual machine in gigabytes (default: 6)")
+	parser.add_argument("--ann",				default="hg19",		help="name of the SnpEff genome with which to annotate (default: hg19)")
+	parser.add_argument("--memory",				default="6",		help="the memory for the (SnpEff) Java virtual machine in gigabytes (default: 6)")
 	parser.add_argument("--scripts",			default=software,	help="location of scripts dir (directory where this script resides - use this option only if qsub-ing with the Oracle Grid Engine)")
 	parser.add_argument("--mindepth",	type=int,	default=10,		help="the min tot read depth required in at least one sample - positions without this wont appear in pileup file (default: 10). Where the filtering occurs: samtools mpileup post-processing")
 	parser.add_argument("--minad",		type=int,	default=2,		help="the min alt depth (AD) in at least one sample to output variant (default: 2). Where the filtering occurs: samtools mpileup post-processing")
@@ -73,7 +73,7 @@ def get_arg():
 	parser.add_argument("--maxdepth",	type=int,	default=100000,		help="max per-BAM depth option for samtools mpileup (default: 100000)")
 	parser.add_argument("--s1adpp",		type=int,	default=3,		help="for filtered report, require the sample 1 (normal) alt depth per position to be less than this (default: 3) (note: this is NOT sample1 alt depth of the given alt but, rather, at the given position). Where the filtering occurs: generating report.coding.somatic")
 	parser.add_argument("--minallelefreq",		type=int,	default=4,	help="Sgt1MAXFREQ (the allele frequency of any sample not including the first one, assumed to be normal) is greater than this (default: 4) Where the filtering occurs: generating the PD.report file.")
-	parser.add_argument("--ann-vcf",						help="comma-delimited list of vcfs with which to provide additional annotation (default: none). Where it's used: SnpSift")
+	parser.add_argument("--annvcf",							help="comma-delimited list of vcfs with which to provide additional annotation (default: none). Where it's used: SnpSift")
 	parser.add_argument("--buildprior",			default=software + "/bin/prior_unif01",		help="starting input prior when building the prior if step 3 is invoked (default: bin/prior_unif01)")
 	parser.add_argument("--prior",				default=software + "/bin/prior_diploid01",	help="prior to use if step 3 is not run (default: bin/prior_diploid01)")
 	parser.add_argument("--prioriterations",		default="10",		help="the number of iterations for the prior build, if step 3 is run (default: 10)")
@@ -89,14 +89,12 @@ def get_arg():
 	parser.add_argument("--index",				default="0",		help="an index used in naming of output files (default: 0)")
 	parser.add_argument("--noncoding",	action="store_true",			help="use snpEff to find all transcripts, not just only protein transcripts (default: off). Where it's used: step 5")
 	parser.add_argument("--noclean",	action="store_true",			help="do not delete temporary intermediate files (default: off)")
-	parser.add_argument("--debug",		action="store_true",			help="echo commands (default: off)")
+	parser.add_argument("--verbose","-v",	action="store_true",			help="echo commands (default: off)")
+	parser.add_argument("--superverbose",	action="store_true",			help="echo commands (default: off)")
 
 	args = parser.parse_args()
 
-	# if no args, print help
-	if ( not len(sys.argv) > 1 ):
-		parser.print_help()
-		sys.exit(0)
+	# automatically modify the argument dict:
 
 	# get the number of samples
 	numsamp = 0
@@ -117,21 +115,31 @@ def get_arg():
 	vars(args)['bin'] = args.scripts + "/bin" 
 	# if user didn't define compsamp, set it
 	if not args.compsamp: vars(args)['compsamp'] = generate_compsamp(numsamp)
-	# generate default prior string
-	vars(args)['priorstring'] = generate_priorstr(args.compsamp, args.prior)
-
-	# need to fix paths if users passed software path manually
+	# generate default prior string if user not running step3
+	if not "3" in args.steps:
+		vars(args)['priorstring'] = generate_priorstr(args.compsamp, args.prior)
+	# define a directory for reports
+	vars(args)['reportdir'] = args.outputdir + "/report"
 
 	# print args
 	print(args)
 	print
 
-	return args
+	return args, parser
 
 # -------------------------------------
 
-def check_error(args):
+def check_error(args, parser):
 	"""Check for errors, check dependencies """
+
+	# if no args, print help
+	if ( not len(sys.argv) > 1 ):
+		parser.print_help()
+		sys.exit(0)
+
+	# unpaired?
+	if (args.numsamp == 1 ):
+		print("[ALERT] running savi with an unpaired sample - this is not optimal")
 
 	# check step string only goes from 1 to 5 and is all digits 
 	if not args.steps.isdigit():
@@ -141,7 +149,7 @@ def check_error(args):
 		print("[ERROR] invalid step string (only steps 1 thro 5 exist)")
 		sys.exit(1)
 
-	# required programs
+	# define required programs
 	required_programs = ("java", "python", "samtools", "snpEff.jar", "bgzip", "tabix", "vcffilter", "bcftools")
 	required_savi_programs = ("pileup2multiallele_vcf", "add_to_info", "make_qvt", "savi_poster", "savi_conf", "savi_comp", "savi_poster_accum", "savi_poster_merge", "savi_poster_prt", "savi_unif_prior", "savi_txt2prior")
 
@@ -206,12 +214,15 @@ def generate_priorstr(compsamp, priorpath):
 	# if run step3, create prior string for priors specified in compsamp
 	# if compsamp="2:1", it should look like this - 1:${outputdir}/savi/prior1/prior,2:${outputdir}/savi/prior2/prior
 	# if not step3, use diploid prior by default
-	return ",".join(["%s:%s" % (k, priorpath) for k in get_uniq_samples(compsamp)])
+	if not compsamp:
+		return "1:" + priorpath
+	else:
+		return ",".join(["%s:%s" % (k, priorpath) for k in get_uniq_samples(compsamp)])
 
 # -------------------------------------
 
 def run_cmd(cmd, bool_verbose, bool_getstdout):
-	"""Run system command"""
+	"""Run a system (i.e., shell) command"""
 
 	# if verbose, print command
 	if (bool_verbose): 
@@ -239,9 +250,10 @@ def run_cmd(cmd, bool_verbose, bool_getstdout):
 # -------------------------------------
 
 def check_file_exists_and_nonzero(myfile):
-	"""check for existence and nonzero-ness of output file"""
+	"""Check for the existence and nonzero-ness of an output file"""
 
-	if (os.path.isfile(myfile)):
+	# if (os.path.isfile(myfile)):
+	if (os.path.isfile(os.path.expanduser(myfile))):
 		if (os.path.getsize(myfile) == 0):
 			print(myfile + " is empty. Exiting")
 			sys.exit(1)
@@ -255,14 +267,18 @@ class Step(object):
 	"""A parent step class from which step children inherit"""
 
 	def __init__ (self, args, step_index):
-		"""initialize step object"""
+		"""Initialize step object"""
 		# set arguments dictionary
 		self.args = args 
 		# set step index
 		self.step_index = step_index 
 
 	def run(self):
-		"""the run method, meant to be overridden by the children"""
+		"""The run method, meant to be overridden by the children"""
+		print('[STEP ' + self.step_index + ']')
+
+	def cleanup(self):
+		"""Clean up tmp and intermediate files"""
 		print('[STEP ' + self.step_index + ']')
 
 # -------------------------------------
@@ -271,7 +287,7 @@ class Step1(Step):
 	"""A step1 object whose run method converts bams to mpileup"""
 
 	def checkok(self):
-		"""check if everything's ok - i.e., inputs exist"""
+		"""Check if everything's ok - i.e., inputs exist"""
 
 		if not self.args.bams:
 			print("[ERROR] No bam files given as input")
@@ -366,7 +382,7 @@ class Step1(Step):
 		# command: samtools plus awk
 		mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, self.args.region, self.args.bams.replace(',', ' '), awkcmd, self.output)
 		# run it
-		run_cmd(mycmd, self.args.debug, 1)
+		run_cmd(mycmd, self.args.verbose, 1)
 
 		# check if output file nonzero size
 		check_file_exists_and_nonzero(self.output)
@@ -412,20 +428,20 @@ class Step2(Step):
 			allvariants = self.args.outputdir + "/" + self.args.index + ".all.vcf"
 			mycmd = "cat {} | {}/pileup2multiallele_vcf {} | tee {} | {} | bgzip > {}".format(self.input, self.args.bin, oscanflag, allvariants, awkcmd, self.output)
 			# run it
-			run_cmd(mycmd, self.args.debug, 1)
+			run_cmd(mycmd, self.args.verbose, 1)
 
 			# zip and tabix all variants file, then remove unzipped file
 			mycmd = "cat {} | bgzip > {}.bgz; rm {}; tabix -p vcf {}.bgz".format(allvariants, allvariants, allvariants, allvariants)
-			run_cmd(mycmd, self.args.debug, 1)
+			run_cmd(mycmd, self.args.verbose, 1)
 
 		# otherwise, just generate variants file
 		else:
 			mycmd = "cat {} | {}/pileup2multiallele_vcf {} | bgzip > {}".format(self.input, self.args.bin, oscanflag, self.output)
-			run_cmd(mycmd, self.args.debug, 1)
+			run_cmd(mycmd, self.args.verbose, 1)
 
 		# tabix variants
 		mycmd = "tabix -p vcf {}".format(self.output)
-		run_cmd(mycmd, self.args.debug, 1)
+		run_cmd(mycmd, self.args.verbose, 1)
 
 		# if empty
 		# if [ $( zcat ${outputdir}/${SGE_TASK_ID}.vcf.bgz | sed '/^#/d' | head | wc -l ) == 0 ]; then
@@ -455,6 +471,9 @@ class Step3(Step):
 		# check if input file nonzero size
 		check_file_exists_and_nonzero(self.input)
 
+		# make prior string
+		vars(self.args)['priorstring'] = "1:" + self.args.outputdir + "/priors/prior1/prior"
+
 		# loop through unique samples
 		for i in get_uniq_samples(self.args.compsamp):
 
@@ -473,14 +492,14 @@ class Step3(Step):
 			    " --outputdir " + priordir 
 
 			# run it
-			myout = run_cmd(mycmd, self.args.debug, 1)
-			if (self.args.debug): print(myout)
+			myout = run_cmd(mycmd, self.args.verbose, 1)
+			if (self.args.superverbose): print(myout)
 
-		# if run step3, create prior string for priors specified in compsamp
-		# if compsamp="2:1", it should look like this - 1:${outputdir}/savi/prior1/prior,2:${outputdir}/savi/prior2/prior
-		# priorstring=$( for i in $( echo ${compsamp} | sed 's|,|\n|g; s|:|\n|g' | sort -u ); do echo -n "${i}:${outputdir}/savi/prior${i}/prior,"; done | sed 's|,$||'; echo )
-		# if not step3, use diploid prior by default
-		# priorstring=$( for i in $( echo ${compsamp} | sed 's|,|\n|g; s|:|\n|g' | sort -u ); do echo -n "${i}:${inputprior},"; done | sed 's|,$||'; echo )
+			# update prior str
+			if not i == "1":
+				vars(self.args)['priorstring'] += "," + i + ":" + self.args.outputdir + "/priors/prior" + i + "/prior"
+
+		print("[priorstring] " + vars(self.args)['priorstring']) 
 
 # -------------------------------------
 
@@ -501,14 +520,8 @@ class Step4(Step):
 		# check if input file nonzero size
 		check_file_exists_and_nonzero(self.input)
 
-		# define a directory for reports
-		reportdir = self.args.outputdir + "/report"
-
-		# if dir doesn't exist, create it
-		if not os.path.exists(reportdir): os.makedirs(reportdir)
-
-		# add this key-value pair to the args dict
-		vars(self.args)['report'] = reportdir
+		# if report dir doesn't exist, create it
+		if not os.path.exists(self.args.reportdir): os.makedirs(self.args.reportdir)
 
 		# define command to run
 
@@ -532,16 +545,25 @@ class Step4(Step):
 		    " --savipresent " + self.args.presence + \
 		    " --saviconf " + self.args.conf + \
 		    " --keepfreqfile " + keepfreqfile + \
-		    " --outputdir " + reportdir
+		    " --outputdir " + self.args.reportdir 
 
 		# run it
-		myout = run_cmd(mycmd, self.args.debug, 1)
-		if (self.args.debug): print(myout)
-
+		myout = run_cmd(mycmd, self.args.verbose, 1)
+		if (self.args.superverbose): print(myout)
+		
 		# run_savi.py output files:
 		# freqsavi.vcf.bgz - adds presence frequencies to all present variants 
 		# finalsavi.vcf.bgz - add frequency deltas for sample comparisons to all present variants 
 		# finalfilter.vcf - filter all present mutations for somatic variants
+
+		# need to unzip (a bit awkward)
+		# if no savi comparisons (e.g., unpaired sample)
+		if (int(keepfreqfile)):
+			mycmd = "gunzip -S .bgz " + self.args.reportdir + "/freqsavi.vcf.bgz"
+		else:
+			mycmd = "gunzip -S .bgz " + self.args.reportdir + "/finalsavi.vcf.bgz"
+
+		myout = run_cmd(mycmd, self.args.verbose, 1)
 
 # -------------------------------------
 
@@ -550,7 +572,39 @@ class Step5(Step):
 
 	def run(self):
 		"""The run method calls shell(system) commands to do step5 - namely, annotate the vcf"""
-		pass
+
+		# TO DO: implement function to get rid of Ns before annotation because SnpEff messes this up 
+		# (see bug report: https://github.com/pcingola/SnpEff/issues/54)
+
+		# define input and output attributes
+		self.input = self.args.reportdir + "/finalsavi.vcf"
+		self.outprefix = self.args.reportdir + "/tmp_" + self.args.index
+		# self.output = 
+
+		# run parent's run method
+		super(Step5, self).run()
+
+		# define command to run
+		mycmd = "" 
+
+		effopts = " -noLog -noHgvs -q -formatEff -noStats -lof -canon"
+
+		# if not noncoding option, annotate only somatic variants (not all present)
+		if not self.args.noncoding: 
+			effopts += " -onlyProtein -no-downstream -no-intergenic -no-upstream -no-utr"
+
+		jarpath = spawn.find_executable('snpEff.jar')
+		configpath = spawn.find_executable('snpEff.config')
+
+		mycmd="java -Xmx" + self.args.memory + "G" + \
+			" -jar " + jarpath + \
+			" ann " + self.args.ann + \
+			effopts + \
+			" -c " + configpath + \
+			" " + self.input + " > " + self.outprefix + ".eff_0.all.vcf"
+
+		myout = run_cmd(mycmd, self.args.verbose, 1)
+		if (self.args.superverbose): print(myout)
 
 # -------------------------------------
 
