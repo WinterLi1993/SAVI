@@ -59,8 +59,6 @@ def get_arg():
 	parser.add_argument("--ref",							help="reference fasta file with faidx index in the same directory")
 	parser.add_argument("--outputdir","-o",			default = cwdir,	help="the output directory (default: cwd)")
 	parser.add_argument("--region","-r",			default = '',		help="the genomic region to run SAVI on (default: full range) (example: chr1 or chr1:1-50000000)")
-	# parser.add_argument("--index",						help="the integer index of the region you want to run SAVI on. By default, 1 refers to the first chromosome in range.txt, 2 to the second, and so on. If you use the partition flag, 1 refers to the first partition, 2 to the second and so on.  (default: 0, which corresponds to the full range)")
-	# parser.add_argument("--partition",						help="Number of bases into which to partition the genome.  Use this flag, only if you want to break your genome into regions smaller than the chr length.  If you use this flag, you must also specify an index. For example, \"--partition 50000000 --index 1\" would refer to chr1:1-50000000 for hg19 (default: not used)")
 	parser.add_argument("--names",							help="sample names in a comma-delimited list, in the corresponding order of your bam files (default: names are numerical indicies)")
 	parser.add_argument("--compsamp","-c",						help="comma-delimited list of colon-delimited indices of samples to compare with savi (default: everything compared to sample 1) (example: 2:1 would compare the second bam file to the first) (example: 2:1,3:1,3:2 would compare the second to the first, the third to the first, and the third to the second)")
 	parser.add_argument("--steps",				default="1245",		help="steps to run (default: 1,2,4,5 (i.e., all except prior generation))")
@@ -81,7 +79,6 @@ def get_arg():
 	parser.add_argument("--conf",				default="1e-5",		help="the SAVI conf (default: 1e-5). Where it's used: step 4")
 	parser.add_argument("--precision",	type=int,	default=0,		help="the SAVI precision (default: 0). Where it's used: step 4")
 	parser.add_argument("--rnabams",						help="comma-delimited list of rna bam files (.bai indices should be present)")
-	# parser.add_argument("--nofilter",	action="store_true",			help="do not use SAVI comparison filter (default: off) (you should use this option if NOT doing comparisons - e.g., if you only have one sample)")
 	parser.add_argument("--nopv4",		action="store_true",			help="do not run bcftools to compute PV4 (default: off). Where it's used: step 5")
 	parser.add_argument("--noindeldepth",	action="store_true",			help="do not include include indel reads in total depth count (SDP) (default: off) (note: asteriks in mpileup are included irrespective of this flag). Where it's used: step 2")
 	parser.add_argument("--rdplusad",	action="store_true",			help="use reference-agreeing reads plus alternate-calling reads (RD+AD) rather than total depth (SDP) as input to savi (default: off). Where it's used: step 2")
@@ -173,6 +170,16 @@ def check_error(args, parser):
 		check_path(args.ref)
 		check_path(args.ref + '.fai')
 
+	# check for existence of annotating vcf
+	if args.annvcf:
+		for i in args.annvcf.split(","):
+			check_path(i)
+
+	# if step1 called, but no bam files supplied, throw error
+	if '1' in args.steps and not args.bams:
+		print("[ERROR] No bam files given as input")
+		sys.exit(1)
+
 	# need to check versions
 	# need to print times
 
@@ -185,6 +192,16 @@ def check_path(myfile):
 	if (not os.path.isfile(os.path.expanduser(myfile))):
 		print("[ERROR] Can't find the file " + myfile)
 		sys.exit(1)
+
+# -------------------------------------
+
+def remove_files(myfile, boolverbose):
+	"""Remove files"""
+
+	# command: samtools plus awk
+	mycmd = "rm -f " + myfile
+	# run it
+	run_cmd(mycmd, boolverbose, 1)
 
 # -------------------------------------
 
@@ -250,16 +267,18 @@ def run_cmd(cmd, bool_verbose, bool_getstdout):
 # -------------------------------------
 
 def check_file_exists_and_nonzero(myfile):
-	"""Check for the existence and nonzero-ness of an output file"""
+	"""Check for the existence and nonzero-ness of a file"""
 
-	# if (os.path.isfile(myfile)):
-	if (os.path.isfile(os.path.expanduser(myfile))):
-		if (os.path.getsize(myfile) == 0):
-			print(myfile + " is empty. Exiting")
+	# loop through comma-delimited list of files
+	for i in myfile.split(","):
+		# if (os.path.isfile(i)):
+		if (os.path.isfile(os.path.expanduser(i))):
+			if (os.path.getsize(i) == 0):
+				print(i + " is empty. Exiting")
+				sys.exit(1)
+		else:
+			print("Can't find " + i + ". Exiting.")
 			sys.exit(1)
-	else:
-		print("Can't find " + myfile + ". Exiting.")
-		sys.exit(1)
 
 # -------------------------------------
 
@@ -273,42 +292,57 @@ class Step(object):
 		# set step index
 		self.step_index = step_index 
 
+		# list of intermediate files (to be cleaned)
+		self.intermediates=[]
+
+	def set_input(self, myfile):
+		"""Set the input file for the step"""
+		self.input = myfile
+
+		# check if input file nonzero size
+		check_file_exists_and_nonzero(self.input)
+
+	def set_output(self, myfile):
+		"""Set the output file for the step"""
+		self.output = myfile
+
+	def set_descrip(self, mydescrip):
+		"""Set the description"""
+		self.description = mydescrip 
+
 	def run(self):
 		"""The run method, meant to be overridden by the children"""
 		print('[STEP ' + self.step_index + ']')
+		print('[comment] ' + self.description + '\n')
 
 	def cleanup(self):
 		"""Clean up tmp and intermediate files"""
-		print('[STEP ' + self.step_index + ']')
+		for i in self.intermediates:
+			remove_files(i, self.args.verbose)
 
 # -------------------------------------
 
 class Step1(Step):
 	"""A step1 object whose run method converts bams to mpileup"""
 
-	def checkok(self):
-		"""Check if everything's ok - i.e., inputs exist"""
+	def __init__ (self, args, step_index):
+		"""Step1 constructor"""
 
-		if not self.args.bams:
-			print("[ERROR] No bam files given as input")
-			sys.exit(1)
+		# parent's constructor
+		Step.__init__(self, args, step_index)
 
-		if not self.args.ref:
-			print("[ERROR] No reference given as input")
-			sys.exit(1)
+		# define description as well as input and output attributes
+		self.set_descrip("Convert bams to mpileup and, if not building custom prior, filter for variants only")
+		self.set_input(self.args.bams)
+		self.set_output(self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt")
 
 	# override parent's run method
 	def run(self):
 		"""The run method calls shell(system) commands to do step1 - namely, it calls samtools mpileup to convert bam to mpileup"""
 
-		# define input and output attributes
-		self.input = self.args.bams
-		self.output = self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt"
-
 		# run parent's run method
 		super(Step1, self).run()
-		# check if there are errors
-		self.checkok()
+
 		# define pileup file
 		# note the -d flag: "max per-BAM depth to avoid excessive memory usage [250]." 
 		# The default of 250 is way too low, so we jack it up
@@ -392,19 +426,23 @@ class Step1(Step):
 class Step2(Step):
 	"""A step2 object whose run method converts mpileup to vcf"""
 
+	def __init__ (self, args, step_index):
+		"""Step2 constructor"""
+
+		# parent's constructor
+		Step.__init__(self, args, step_index)
+
+		# define description as well as input and output attributes
+		self.set_descrip("Convert mpileup to vcf")
+		self.set_input(self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt")
+		self.set_output(self.args.outputdir + "/" + self.args.index + ".vcf.bgz")
+
 	# override parent's run method
 	def run(self):
 		"""The run method calls shell(system) commands to do step2 - namely, it converts mpileup to vcf"""
 
-		# define input and output attributes
-		self.input = self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt"
-		self.output = self.args.outputdir + "/" + self.args.index + ".vcf.bgz"
-
 		# run parent's run method
 		super(Step2, self).run()
-
-		# check if input file nonzero size
-		check_file_exists_and_nonzero(self.input)
 
 		# define command to run
 
@@ -458,18 +496,21 @@ class Step2(Step):
 class Step3(Step):
 	"""A step3 object whose run method computes prior"""
 
+	def __init__ (self, args, step_index):
+		"""Step3 constructor"""
+
+		# parent's constructor
+		Step.__init__(self, args, step_index)
+
+		# define description as well as input and output attributes
+		self.set_descrip("Construct the prior for each sample")
+		self.set_input(self.args.outputdir + "/" + self.args.index + ".all.vcf.bgz")
+
 	def run(self):
 		"""The run method calls shell(system) commands to do step3 - namely, compute the prior"""
 
 		# run parent's run method
 		super(Step3, self).run()
-
-		# define input and output attributes
-		self.input = self.args.outputdir + "/" + self.args.index + ".all.vcf.bgz"
-		# self.output = 
-
-		# check if input file nonzero size
-		check_file_exists_and_nonzero(self.input)
 
 		# make prior string
 		vars(self.args)['priorstring'] = "1:" + self.args.outputdir + "/priors/prior1/prior"
@@ -499,26 +540,29 @@ class Step3(Step):
 			if not i == "1":
 				vars(self.args)['priorstring'] += "," + i + ":" + self.args.outputdir + "/priors/prior" + i + "/prior"
 
-		print("[priorstring] " + vars(self.args)['priorstring']) 
+		if self.args.verbose: print("[priorstring] " + vars(self.args)['priorstring']) 
 
 # -------------------------------------
 
 class Step4(Step):
 	"""A step4 object whose run method runs savi proper"""
 
+	def __init__ (self, args, step_index):
+		"""Step4 constructor"""
+
+		# parent's constructor
+		Step.__init__(self, args, step_index)
+
+		# define description as well as input and output attributes
+		self.set_descrip("Add SAVI statistics to the vcf")
+		self.set_input(self.args.outputdir + "/" + self.args.index + ".vcf.bgz")
+
 	# override parent's run method
 	def run(self):
 		"""The run method calls shell(system) commands to do step4 - namely, call savi proper"""
 
-		# define input and output attributes
-		self.input = self.args.outputdir + "/" + self.args.index + ".vcf.bgz"
-		# self.output = 
-
 		# run parent's run method
 		super(Step4, self).run()
-
-		# check if input file nonzero size
-		check_file_exists_and_nonzero(self.input)
 
 		# if report dir doesn't exist, create it
 		if not os.path.exists(self.args.reportdir): os.makedirs(self.args.reportdir)
@@ -570,21 +614,39 @@ class Step4(Step):
 class Step5(Step):
 	"""A step5 object whose run method annotates with SnpEff and generates report"""
 
-	def run(self):
-		"""The run method calls shell(system) commands to do step5 - namely, annotate the vcf"""
+	def __init__ (self, args, step_index):
+		"""Step5 constructor"""
+
+		# parent's constructor
+		Step.__init__(self, args, step_index)
+
+		# define description as well as input and output attributes
+		self.set_descrip("Add annotation to the vcf")
+		self.set_input(self.args.reportdir + "/finalsavi.vcf")
+
+		# set output prefix, output reports
+		self.outprefix = self.args.reportdir + "/tmp_" + self.args.index
+
+		# full vcf report 
+		self.vcf_all = self.args.reportdir + "/report.all.vcf"
+		# vcf report, filtered for coding regions 
+		self.vcf_coding = self.args.reportdir + "/report.coding.vcf"
+		# vcf report, filtered for coding regions + somatic variants
+		self.vcf_somatic = self.args.reportdir + "/report.coding.somatic.vcf"
+
+		# full tsv report
+		self.report_all = self.args.reportdir + "/report.unfiltered.txt"
+
+	def runEff(self):
+		"""Run SnpEff and SnpSift"""
 
 		# TO DO: implement function to get rid of Ns before annotation because SnpEff messes this up 
 		# (see bug report: https://github.com/pcingola/SnpEff/issues/54)
 
-		# define input and output attributes
-		self.input = self.args.reportdir + "/finalsavi.vcf"
-		self.outprefix = self.args.reportdir + "/tmp_" + self.args.index
-		# self.output = 
-
 		# run parent's run method
 		super(Step5, self).run()
 
-		# define command to run
+		# define SnpEff command to run
 		mycmd = "" 
 
 		effopts = " -noLog -noHgvs -q -formatEff -noStats -lof -canon"
@@ -593,21 +655,70 @@ class Step5(Step):
 		if not self.args.noncoding: 
 			effopts += " -onlyProtein -no-downstream -no-intergenic -no-upstream -no-utr"
 
-		jarpath = spawn.find_executable('snpEff.jar')
+		# get paths
+		effpath = spawn.find_executable('snpEff.jar')
+		siftpath = spawn.find_executable('SnpSift.jar')
 		configpath = spawn.find_executable('snpEff.config')
 
-		mycmd="java -Xmx" + self.args.memory + "G" + \
-			" -jar " + jarpath + \
+		# set output file
+		self.output = self.outprefix + ".eff_0.all.vcf"
+
+		mycmd = "java -Xmx" + self.args.memory + "G" + \
+			" -jar " + effpath + \
 			" ann " + self.args.ann + \
 			effopts + \
 			" -c " + configpath + \
-			" " + self.input + " > " + self.outprefix + ".eff_0.all.vcf"
+			" " + self.input + " > " + self.output
 
 		myout = run_cmd(mycmd, self.args.verbose, 1)
 		if (self.args.superverbose): print(myout)
+
+		# define SnpSift commands to run
+
+		# loop through all annotating vcfs
+		if self.args.annvcf:
+			for j,i in enumerate(self.args.annvcf.split(",")):
+				# set output file
+				self.output = self.outprefix + ".eff_" + str(j+1) + ".all.vcf"
+
+				mycmd = "java -Xmx" + self.args.memory + "G" + \
+					" -jar " + siftpath + \
+					" annotate " + i + \
+					" -noLog " + \
+					self.outprefix + ".eff_" + str(j) + ".all.vcf > " + self.output
+
+				myout = run_cmd(mycmd, self.args.verbose, 1)
+				if (self.args.superverbose): print(myout)
+
+		# rename final iteration of vcf to report
+		os.rename(self.output, self.vcf_all)
+
+	def runPostEffProcessing(self):
+		"""Do the Post-SnpEff Processing - Filter vcf and convert to human readable report"""
+
+		# convert vcf to tsv (tab-delimited report)
+		mycmd = "cat " + self.vcf_all + " | " + self.args.bin + "/vcf2fullreport.py > " + self.report_all
+		run_cmd(mycmd, self.args.verbose, 1)
+
+		# filter for coding region
+		# desired features
+		featurelist = ["inframe", "frameshift", "synonymous_variant", "missense_variant", "splice_acceptor", "splice_donor", "splice_region", "start", "stop"]
+		with open(self.vcf_coding, "w") as g:
+			with open(self.vcf_all, 'r') as f:
+				for line in f:
+					if (line.startswith("#") or any(k in line.split()[7] for k in featurelist)):
+						g.write(line)
+
+	def run(self):
+		"""The run method calls shell(system) commands to do step5 - namely, annotate the vcf"""
+
+		# run SnpEff
+		self.runEff()
+		# run post-SnpEff filtering, processing
+		self.runPostEffProcessing()
 
 # -------------------------------------
 
 if __name__ == "__main__":
 
-	main()	
+	main()

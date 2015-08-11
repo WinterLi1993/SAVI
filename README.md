@@ -1,7 +1,7 @@
 Status: Active Development
 
 ## SAVI
-SAVI - *statistical algorithm for variant identification* - is a program for calling variants in sequencing data written by Vladimir Trifonov with contributions from Oliver E., Jiguang W., Francesco A., Alex P., and Hossein K.
+SAVI - *statistical algorithm for variant identification* - is a program for calling variants in sequencing data written by Vladimir and Oliver with contributions from Jiguang, Francesco, Alex, and Hossein.
 
 **Introduction**
 
@@ -87,7 +87,7 @@ Before we run SAVI, we need to make sure of the following:
 Got it? Good! Here's an example command running SAVI **for chromosome 1**:
 
 ```
-SAVI/savi --bams normal.bam,tumor.bam --names NORMAL,TUMOR --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --compsamp 2:1 --outputdir outputdir/samplename/chr1 --region chr1 --ann-vcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicCodingMuts.v72.May52015.jw.vcf,savi_resources/CosmicNonCodingVariants.v72.May52015vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
+SAVI/savi_dev.py --bams normal.bam,tumor.bam --names NORMAL,TUMOR --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --outputdir outputdir/samplename/chr1 --region chr1 --annvcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicCodingMuts.v72.May52015.jw.vcf,savi_resources/CosmicNonCodingVariants.v72.May52015vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
 ```
 
 In practice, we'd want to run SAVI for every chromosome in a loop:
@@ -102,7 +102,7 @@ Another use case is a tumor-only bam file.
 Here's a sample command again **for chromosome 1**:
 
 ```
-SAVI/savi --bams tumor.bam --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --compsamp 1 --nofilter --outputdir outputdir/samplename/chr1 --region chr1 --ann-vcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicCodingMuts.v72.May52015.jw.vcf,savi_resources/CosmicNonCodingVariants.v72.May52015vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
+SAVI/savi_dev.py --bams tumor.bam --ref savi_resources/hg19_chr.fold.25.fa --memory 4 --outputdir outputdir/samplename/chr1 --region chr1 --annvcf savi_resources/219normals.cosmic.hitless100.noExactMut.mutless5000.all_samples.vcf,savi_resources/cbio.fix.sort.vcf,savi_resources/CosmicCodingMuts.v72.May52015.jw.vcf,savi_resources/CosmicNonCodingVariants.v72.May52015vcf,savi_resources/dbSnp138.vcf,savi_resources/meganormal186TCGA.fix.sort.vcf
 ```
 
 In this case, SAVI won't be able to call somatic variants.
