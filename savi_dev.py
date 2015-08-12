@@ -63,7 +63,7 @@ def get_arg():
 	parser.add_argument("--compsamp","-c",						help="comma-delimited list of colon-delimited indices of samples to compare with savi (default: everything compared to sample 1) (example: 2:1 would compare the second bam file to the first) (example: 2:1,3:1,3:2 would compare the second to the first, the third to the first, and the third to the second)")
 	parser.add_argument("--steps",				default="1245",		help="steps to run (default: 1,2,4,5 (i.e., all except prior generation))")
 	parser.add_argument("--ann",				default="hg19",		help="name of the SnpEff genome with which to annotate (default: hg19)")
-	parser.add_argument("--memory",				default="6",		help="the memory for the (SnpEff) Java virtual machine in gigabytes (default: 6)")
+	parser.add_argument("--memory",				default="4",		help="the memory for the (SnpEff) Java virtual machine in gigabytes (default: 6)")
 	parser.add_argument("--scripts",			default=software,	help="location of scripts dir (directory where this script resides - use this option only if qsub-ing with the Oracle Grid Engine)")
 	parser.add_argument("--mindepth",	type=int,	default=10,		help="the min tot read depth required in at least one sample - positions without this wont appear in pileup file (default: 10). Where the filtering occurs: samtools mpileup post-processing")
 	parser.add_argument("--minad",		type=int,	default=2,		help="the min alt depth (AD) in at least one sample to output variant (default: 2). Where the filtering occurs: samtools mpileup post-processing")
@@ -312,8 +312,7 @@ class Step(object):
 
 	def run(self):
 		"""The run method, meant to be overridden by the children"""
-		print('[STEP ' + self.step_index + ']')
-		print('[comment] ' + self.description + '\n')
+		print('[STEP ' + self.step_index + '] ' + self.description + '\n')
 
 	def cleanup(self):
 		"""Clean up tmp and intermediate files"""
@@ -693,6 +692,39 @@ class Step5(Step):
 		# rename final iteration of vcf to report
 		os.rename(self.output, self.vcf_all)
 
+	def filterCoding(self, report_in, report_out):
+		"""Filter for the coding region - 
+		get useful variants and variants in the coding region. The idea is to capture these SnpEff features:
+		inframe_deletion *inframe_insertion frameshift_variant* initiator_codon_variant missense_variant* synonymous_variant*
+		splice_acceptor* splice_donor* splice_region* start_lost* start_gained* stop_gained* stop_lost* stop_retained_variant*"""
+
+		# filter for coding region
+		# desired features
+		featurelist = ["inframe", "frameshift", "synonymous_variant", "missense_variant", "splice_acceptor", "splice_donor", "splice_region", "start", "stop"]
+		with open(report_out, "w") as g:
+			with open(report_in, 'r') as f:
+				for line in f:
+					if (line.startswith("#") or any(k in line.split()[7] for k in featurelist)):
+						g.write(line)
+
+	def filterCodingSomatic(self, report_in, report_out):
+		"""Filter for the coding + somatic variants"""
+
+		# filtering: 
+		# S1 AD PP < cutoff so discard variants with normal alt depth above a certain threshhold
+		# discard variants with strand bias
+		# discard variants in meganormals
+		# discard variants in COMMON dbSNP
+		# take out strand bias filter
+		# vcffilter -f "S1ADPP < ${s1adpp}" ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.vcf | awk '$0 ~ /^#/ || ( $0 !~ /MEGANORMAL_ID/ && $0 !~ /Meganormal186GBM/ && $0 !~ /COMMON\=1/)' > ${outputdir2}/tmp_${SGE_TASK_ID}.eff_${myindex}.coding.somatic.vcf
+
+		pass
+
+	def filterCodingPD(self, report_in, report_out):
+		"""Filter for the PD lower bound greater than zero"""
+
+		pass
+
 	def runPostEffProcessing(self):
 		"""Do the Post-SnpEff Processing - Filter vcf and convert to human readable report"""
 
@@ -701,13 +733,7 @@ class Step5(Step):
 		run_cmd(mycmd, self.args.verbose, 1)
 
 		# filter for coding region
-		# desired features
-		featurelist = ["inframe", "frameshift", "synonymous_variant", "missense_variant", "splice_acceptor", "splice_donor", "splice_region", "start", "stop"]
-		with open(self.vcf_coding, "w") as g:
-			with open(self.vcf_all, 'r') as f:
-				for line in f:
-					if (line.startswith("#") or any(k in line.split()[7] for k in featurelist)):
-						g.write(line)
+		self.filterCoding(self.vcf_all, self.vcf_coding)
 
 	def run(self):
 		"""The run method calls shell(system) commands to do step5 - namely, annotate the vcf"""
