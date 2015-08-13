@@ -203,6 +203,8 @@ def cleanup(intermediates, bool_verbose):
 		if os.path.isfile(os.path.expanduser(i)):
 			os.remove(i)
 
+# -------------------------------------
+
 def check_path(myfile):
 	"""Check for the existence of a file"""
 
@@ -654,9 +656,6 @@ class Step5(Step):
 		# vcf report, filtered for PD_U < 0
 		self.vcf_PD_rev = self.args.reportdir + "/report.coding.rev-PDfilter.vcf"
 
-		# full tsv report
-		self.report_all = self.args.reportdir + "/report.unfiltered.txt"
-
 	def runEff(self):
 		"""Run SnpEff and SnpSift"""
 
@@ -723,6 +722,7 @@ class Step5(Step):
 		# get comparisons only
 		compsamp_list = [i.replace(":", "") for i in mycompsamp.split(',') if ':' in i]
 
+		# generate filter string for vcffilter
 		if compsamp_list:
 			for j,k in enumerate(compsamp_list):
 				if (j < len(compsamp_list) - 1):
@@ -739,6 +739,7 @@ class Step5(Step):
 
 		if (self.args.verbose): print("[comment] filter Ns from " + report_in + ", produce: " + report_out)
 
+		# make sure neither ref nor alt column has an 'N'
 		with open(report_out, "w") as g:
 			with open(report_in, 'r') as f:
 				for line in f:
@@ -793,6 +794,8 @@ class Step5(Step):
 				filterstring = "( P2_F > " + self.args.minallelefreq + " ) & ( ( P1_L > 0 & P1_L < 51 & P1_U > 49 ) | ( P1_L = 0 ) ) & ( " + filterstring + " )"
 				filterstring_reverse = "( P1_L > 0 & P1_L < 51 & P1_U > 49 ) & ( " + filterstring_reverse + " )"
 
+			# TO DO: explain the logic of these filters
+
 			# define command
 			mycmd = 'vcffilter -f "' + filterstring + '" ' + report_in + " > " + report_out
 			myout = run_cmd(mycmd, self.args.verbose, 1)
@@ -818,7 +821,7 @@ class Step5(Step):
 		"""Do the Post-SnpEff Processing - Filter vcf and convert to human readable report"""
 
 		# convert vcf to tsv (tab-delimited report)
-		mycmd = "cat " + self.vcf_all + " | " + self.args.bin + "/vcf2fullreport.py > " + self.report_all
+		mycmd = "cat " + self.vcf_all + " | " + self.args.bin + "/vcf2fullreport.py > " + self.vcf_all.replace('.vcf', '.txt')
 		run_cmd(mycmd, self.args.verbose, 1)
 
 		# filter for coding region
