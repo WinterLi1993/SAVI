@@ -31,7 +31,8 @@ def main():
 	(args, parser) = get_arg()
 
 	# check for errors, check dependencies
-	check_error(args, parser)
+	if not args.noerror:
+		check_error(args, parser)
 
 	# if user requests, run the appropriate step
 	for i in args.steps:
@@ -92,6 +93,7 @@ def get_arg():
 	parser.add_argument("--index",				default="0",		help="an index used in naming of output files (default: 0)")
 	parser.add_argument("--noncoding",	action="store_true",			help="use snpEff to find all transcripts, not just only protein transcripts (default: off). Where it's used: step 5")
 	parser.add_argument("--noclean",	action="store_true",			help="do not delete temporary intermediate files (default: off)")
+	parser.add_argument("--noerror",	action="store_true",			help="do not check for errors (default: off)")
 	parser.add_argument("--verbose","-v",	action="store_true",			help="echo commands (default: off)")
 	parser.add_argument("--superverbose",	action="store_true",			help="echo commands (default: off)")
 
@@ -141,7 +143,7 @@ def check_error(args, parser):
 		sys.exit(0)
 
 	# unpaired?
-	if (args.numsamp == 1 ):
+	if (args.numsamp == 1):
 		print("[ALERT] running savi with an unpaired sample - this is not optimal")
 
 	# check step string only goes from 1 to 5 and is all digits 
@@ -153,7 +155,8 @@ def check_error(args, parser):
 		sys.exit(1)
 
 	# define required programs
-	required_programs = ("java", "python", "samtools", "snpEff.jar", "bgzip", "tabix", "vcffilter", "bcftools")
+	# required_programs = ("java", "python", "samtools", "snpEff.jar", "SnpSift.jar", "bgzip", "tabix", "vcffilter", "bcftools")
+	required_programs = ("java", "python", "samtools", "snpEff.jar", "SnpSift.jar", "bgzip", "tabix", "vcffilter")
 	required_savi_programs = ("pileup2multiallele_vcf", "add_to_info", "make_qvt", "savi_poster", "savi_conf", "savi_comp", "savi_poster_accum", "savi_poster_merge", "savi_poster_prt", "savi_unif_prior", "savi_txt2prior")
 
 	# check for required programs 
@@ -163,6 +166,15 @@ def check_error(args, parser):
 	for j in required_programs:
 		if (not spawn.find_executable(j)):
 			print("[ERROR] Can't find " + j + ". Please add it to your PATH")
+			sys.exit(1)
+
+	# check for correct versions 
+	# (may need to add bcftools back in here)
+ 	effpath = spawn.find_executable('snpEff.jar')
+	for myprogram, version, mycmd in zip(["samtools", "SnpEff"], ["1.2", "4.1"], ["samtools --version", "java -Xmx1G -jar " + effpath + " -version"]):
+		myout = run_cmd(mycmd, 0, 1)
+		if not version in myout.split("\n")[0]:
+			print("[ERROR] Must use " + myprogram + " verion: " + version)
 			sys.exit(1)
 
 	# check for existence of bam files
@@ -181,14 +193,20 @@ def check_error(args, parser):
 		for i in args.annvcf.split(","):
 			check_path(i)
 
-	# if step1 called, but no bam files supplied, throw error
-	if '1' in args.steps and not args.bams:
-		print("[ERROR] No bam files given as input")
+	# if Step1 called, but no bam files or ref supplied, throw error
+	if '1' in args.steps and ((not args.bams) or (not args.ref)):
+		print("[ERROR] Need to supply .bam files and reference file for Step 1")
 		sys.exit(1)
 
-	# need to check versions
-	# need to print times
-
+	# check that region is in ref
+	with open(args.ref + '.fai', "r") as f:
+		contents = f.read()
+		# the region supplied by the user should be in the first column of the ref.fa.fai file
+		# region can look like this, e.g., chr1:120000-130000 (just check the part before the colon)
+		if not (args.region.split(":")[0] in [x.split()[0] for x in contents.split("\n") if x]):
+			print("[ERROR] Region " + args.region.split(":")[0] + " not in " + args.ref + ".fai")
+			sys.exit(1)
+			
 # -------------------------------------
 
 def cleanup(intermediates, bool_verbose):
@@ -297,6 +315,7 @@ class Step(object):
 
 	def __init__ (self, args, step_index):
 		"""Initialize step object"""
+
 		# set arguments dictionary
 		self.args = args 
 		# set step index
@@ -307,6 +326,7 @@ class Step(object):
 
 	def set_input(self, myfile):
 		"""Set the input file for the step"""
+
 		self.input = myfile
 
 		# check if input file nonzero size
@@ -314,16 +334,20 @@ class Step(object):
 
 	def set_output(self, myfile):
 		"""Set the output file for the step"""
+
 		self.output = myfile
 
 	def set_descrip(self, mydescrip):
 		"""Set the description"""
+
 		self.description = mydescrip 
 
 	def run(self):
 		"""The run method, meant to be overridden by the children"""
-	
+
+		# extra carriage return first for all steps other than 1
 		if self.args.verbose and self.step_index != "1": print
+		# print step and description
 		print('[STEP ' + self.step_index + '] ' + self.description + '\n')
 
 # -------------------------------------
@@ -356,7 +380,7 @@ class Step1(Step):
 
 		# define command to run
 
-		# **TO DO**: port this awk to Python
+		# **TO DO**: port this awk to Python, add unittests
 
 		# first a line of awk: we want only lines where normal has depth > cutoff
 		# and at least one of the tumor samples has depth > cutoff
@@ -399,8 +423,6 @@ class Step1(Step):
 			}
 		}'"""
 
-		# **TO DO**: port this awk to Python
-
 		# if make prior step, modify awk command to generate all positions in the mpileup, variants and non-variants alike
 		if "3" in self.args.steps:
 			awkcmd = "awk -v num=" + str(self.args.numsamp) + " -v cutoff=" + str(self.args.mindepth) + """ '{
@@ -419,8 +441,13 @@ class Step1(Step):
 				}
 			}'"""
 
+		# define region flag
+		regionflag = ""
+		if self.args.region:
+			regionflag="-r " + self.args.region 
+
 		# command: samtools plus awk
-		mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, self.args.region, self.args.bams.replace(',', ' '), awkcmd, self.output)
+		mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, regionflag, self.args.bams.replace(',', ' '), awkcmd, self.output)
 		# run it
 		run_cmd(mycmd, self.args.verbose, 1)
 
