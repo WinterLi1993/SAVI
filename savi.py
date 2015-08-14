@@ -23,16 +23,15 @@ from distutils import spawn
 def main():
 	"""Main block"""
 
-	# list of files to delete
-	global junkheap
-	junkheap = []
-
 	# get arguments dictionary
 	(args, parser) = get_arg()
 
 	# check for errors, check dependencies
 	if not args.noerror:
 		check_error(args, parser)
+
+	# make a Cleaner object (keeps a list of files to delete)
+	cleaner = Cleaner()
 
 	# if user requests, run the appropriate step
 	for i in args.steps:
@@ -42,10 +41,12 @@ def main():
 		mystep = myclass(args, i)
 		# execute the run method
 		mystep.run()
+		# update set with list of files to be deleted at the very end
+		cleaner.add_step_junk(mystep)
 
 	# clean up tmp files
 	if not args.noclean:
-		cleanup(junkheap, args.verbose)
+		cleaner.cleanup(args.verbose)
 
 # -------------------------------------
 
@@ -173,6 +174,7 @@ def check_error(args, parser):
  	effpath = spawn.find_executable('snpEff.jar')
 	for myprogram, version, mycmd in zip(["samtools", "SnpEff"], ["1.2", "4.1"], ["samtools --version", "java -Xmx1G -jar " + effpath + " -version"]):
 		myout = run_cmd(mycmd, 0, 1)
+		# print(myout)
 		if not version in myout.split("\n")[0]:
 			print("[ERROR] Must use " + myprogram + " verion: " + version)
 			sys.exit(1)
@@ -199,28 +201,15 @@ def check_error(args, parser):
 		sys.exit(1)
 
 	# check that region is in ref
-	with open(args.ref + '.fai', "r") as f:
-		contents = f.read()
-		# the region supplied by the user should be in the first column of the ref.fa.fai file
-		# region can look like this, e.g., chr1:120000-130000 (just check the part before the colon)
-		if not (args.region.split(":")[0] in [x.split()[0] for x in contents.split("\n") if x]):
-			print("[ERROR] Region " + args.region.split(":")[0] + " not in " + args.ref + ".fai")
-			sys.exit(1)
+	if args.region:
+		with open(args.ref + '.fai', "r") as f:
+			contents = f.read()
+			# the region supplied by the user should be in the first column of the ref.fa.fai file
+			# region can look like this, e.g., chr1:120000-130000 (just check the part before the colon)
+			if not (args.region.split(":")[0] in [x.split()[0] for x in contents.split("\n") if x]):
+				print("[ERROR] Region " + args.region.split(":")[0] + " not in " + args.ref + ".fai")
+				sys.exit(1)
 			
-# -------------------------------------
-
-def cleanup(intermediates, bool_verbose):
-	"""Clean up tmp and intermediate files"""
-
-	if bool_verbose:
-		print("[clean-up] Remove files: "),
-		print(intermediates)
-
-	# rm -f
-	for i in intermediates:
-		if os.path.isfile(os.path.expanduser(i)):
-			os.remove(i)
-
 # -------------------------------------
 
 def check_path(myfile):
@@ -307,6 +296,35 @@ def check_file_exists_and_nonzero(myfile):
 		else:
 			print("Can't find " + i + ". Exiting.")
 			sys.exit(1)
+
+# -------------------------------------
+
+class Cleaner():
+	"""A class whose object keeps a set of files to delete from the Steps"""
+
+	def __init__ (self):
+		"""Initialize Cleaner object"""
+
+		# set of intermediate files (to be cleaned)
+		self.junk=set()
+
+	def add_step_junk(self, myStep):
+		"""Update self.junk with the list of junk files from the step object"""
+
+		# update set with list
+		self.junk.update(myStep.intermediates)
+
+	def cleanup(self, bool_verbose):
+		"""Clean up tmp and intermediate files"""
+
+		if bool_verbose:
+			print("[clean-up] Remove files: "),
+			print(self.junk)
+
+		# rm -f
+		for i in self.junk:
+			if os.path.isfile(os.path.expanduser(i)):
+				os.remove(i)
 
 # -------------------------------------
 
@@ -455,7 +473,7 @@ class Step1(Step):
 		check_file_exists_and_nonzero(self.output)
 
 		# the output of this step is needed for the next step, but ultimately we want to delete it
-		junkheap.append(self.output)
+		self.intermediates.append(self.output)
 
 # -------------------------------------
 
@@ -524,8 +542,8 @@ class Step2(Step):
 		# fi
 
 		# the output of this step is needed for the next step, but ultimately we want to delete it
-		junkheap.append(self.output)
-		junkheap.append(self.output + ".tbi")
+		for i in [self.output, self.output + ".tbi"]:
+			self.intermediates.append(i)
 
 # -------------------------------------
 
@@ -643,16 +661,16 @@ class Step4(Step):
 		# need to unzip (a bit awkward)
 		# if no savi comparisons (e.g., unpaired sample)
 		if (int(keepfreqfile)):
-			mycmd = "gunzip -S .bgz " + self.vcf_freq
-		else:
-			mycmd = "gunzip -S .bgz " + self.vcf_final
+			os.rename(self.vcf_freq, self.vcf_final)
+			os.rename(self.vcf_freq + '.tbi', self.vcf_final + '.tbi')
 
+		mycmd = "gunzip -S .bgz " + self.vcf_final
 		myout = run_cmd(mycmd, self.args.verbose, 1)
 
 		# the output of this step is needed for the next step, but ultimately we want to delete it
 		# fix this hack later
 		for i in [self.vcf_freq, self.vcf_freq.replace(".bgz",""), self.vcf_freq + ".tbi", self.vcf_final, self.vcf_final.replace(".bgz",""), self.vcf_final + ".tbi"]:
-			junkheap.append(i)
+			self.intermediates.append(i)
 
 # -------------------------------------
 
@@ -878,10 +896,6 @@ class Step5(Step):
 		self.runEff()
 		# run post-SnpEff filtering, processing
 		self.runPostEffProcessing()
-
-		# clean up
-		if not self.args.noclean:
-			cleanup(self.intermediates, self.args.verbose)
 
 # -------------------------------------
 
