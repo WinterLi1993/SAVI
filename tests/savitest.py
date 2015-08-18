@@ -2,10 +2,6 @@
 
 import unittest
 import sys
-
-sys.path.append("..") 
-
-from SAVI import savi 
 import os 
 import filecmp
 
@@ -18,6 +14,12 @@ import filecmp
 # directory where this script resides 			
 global software
 software = os.path.dirname(os.path.realpath(__file__))
+
+# put directory one above parent dir in the Python Path
+sys.path.append(software + "/../..") 
+
+# import savi wrapper
+from SAVI import savi 
 
 def cleanUp(myfile):
 	"""Clean Up"""
