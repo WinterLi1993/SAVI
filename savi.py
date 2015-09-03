@@ -259,7 +259,7 @@ def run_cmd(cmd, bool_verbose, bool_getstdout):
 	"""Run a system (i.e., shell) command"""
 
 	# if verbose, print command
-	if (bool_verbose): 
+	if (bool_verbose):
 		print("[command] " + cmd)
 
 	proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -280,6 +280,29 @@ def run_cmd(cmd, bool_verbose, bool_getstdout):
 		return stdout.rstrip()
 	else:
 		return "0" # note: this must return a str
+
+# -------------------------------------
+
+def run_cmd_python_pipe(cmd, bool_verbose, filter_function=None, output_file=None):
+	"""Run a system (i.e., shell) command and filter it with python as if we "piped" it into python"""
+
+	# if verbose, print command
+	if (bool_verbose):
+		print("[command] " + cmd)
+
+	proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+	# http://stackoverflow.com/questions/2804543/read-subprocess-stdout-line-by-line
+
+	with open(output_file, "w") as f:
+		while True:
+			line = proc.stdout.readline()
+			if line:
+				myline = filter_function(line.rstrip())
+				if myline:
+					f.write(myline + "\n")
+			else:
+				break
 
 # -------------------------------------
 
@@ -384,6 +407,52 @@ class Step1(Step):
 		self.set_input(self.args.bams)
 		self.set_output(self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt")
 
+	def filter_pileup(self, myline):
+		"""Filter line of pileup"""
+
+		# idea: reduce pileup by only printing variants and only printing lines with enough depth
+
+		# number of samples
+		num = int(self.args.numsamp)
+		# tot read cutoff
+		cutoff = int(self.args.mindepth)
+		# alt read depth
+		minad = int(self.args.minad)
+
+		# if sample 1 (normal) doesn't meet cutoff, break
+		if (int(myline.split()[3]) < cutoff):
+			return None
+
+		# if only one sample, print
+		if (num == 1):
+			# print(myline)
+			return myline
+		# if multiple samples
+		else:
+			# loop thro samples, discounting the normal sample (sample 1)
+			for i in range(1,num):
+
+				# only consider if sample depth greater than or eq to cutoff
+				if int(myline.split()[3+i*3]) >= cutoff:
+
+					# if make prior step, generate all positions in the mpileup, variants and non-variants alike
+					if "3" in self.args.steps:
+						return myline
+						break
+					else:	
+						# get read string
+						readstr = myline.split()[4+i*3]
+				
+						# count ACTGN mismatches
+						# if sufficient number of mismatches, flag line to print
+						# but eliminate read starts with qual scores ACTG (e.g., stuff like ^A ^C etc)
+						if len(re.findall(r'[AaGgCcTtNn]', re.sub(r'\^[ACTGNactgn\+\-]', '', readstr))) >= minad:
+							# print(myline)
+							return myline
+							break
+
+		return None
+
 	# override parent's run method
 	def run(self):
 		"""The run method calls shell(system) commands to do step1 - namely, it calls samtools mpileup to convert bam to mpileup"""
@@ -465,9 +534,12 @@ class Step1(Step):
 			regionflag="-r " + self.args.region 
 
 		# command: samtools plus awk
-		mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, regionflag, self.args.bams.replace(',', ' '), awkcmd, self.output)
+		# mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, regionflag, self.args.bams.replace(',', ' '), awkcmd, self.output)
 		# run it
-		run_cmd(mycmd, self.args.verbose, 1)
+		# run_cmd(mycmd, self.args.verbose, 1)
+
+		mycmd = "samtools mpileup {} {} {}".format(pileupflag, regionflag, self.args.bams.replace(',', ' '))
+		run_cmd_python_pipe(mycmd, self.args.verbose, filter_function=self.filter_pileup, output_file=self.output)
 
 		# check if output file nonzero size
 		check_file_exists_and_nonzero(self.output)
