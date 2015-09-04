@@ -533,13 +533,14 @@ class Step1(Step):
 		if self.args.region:
 			regionflag="-r " + self.args.region 
 
-		# command: samtools plus awk
-		# mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, regionflag, self.args.bams.replace(',', ' '), awkcmd, self.output)
-		# run it
-		# run_cmd(mycmd, self.args.verbose, 1)
+		# too slow :( revert to awk
+		#mycmd = "samtools mpileup {} {} {}".format(pileupflag, regionflag, self.args.bams.replace(',', ' '))
+		#run_cmd_python_pipe(mycmd, self.args.verbose, filter_function=self.filter_pileup, output_file=self.output)
 
-		mycmd = "samtools mpileup {} {} {}".format(pileupflag, regionflag, self.args.bams.replace(',', ' '))
-		run_cmd_python_pipe(mycmd, self.args.verbose, filter_function=self.filter_pileup, output_file=self.output)
+		# command: samtools plus awk
+		mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, regionflag, self.args.bams.replace(',', ' '), awkcmd, self.output)
+		# run it
+		run_cmd(mycmd, self.args.verbose, 1)
 
 		# check if output file nonzero size
 		check_file_exists_and_nonzero(self.output)
