@@ -17,6 +17,8 @@ import re
 import subprocess
 import os
 from distutils import spawn
+# import vcf
+from scipy import stats
 
 # -------------------------------------
 
@@ -175,7 +177,10 @@ def check_error(args, parser):
 	for myprogram, version, mycmd in zip(["samtools", "SnpEff"], ["1.2", "4.1"], ["samtools --version", "java -Xmx1G -jar " + effpath + " -version"]):
 		myout = run_cmd(mycmd, 0, 1)
 		# print(myout)
-		if not version in myout.split("\n")[0]:
+		if "insufficient memory" in myout:
+			print("[ERROR] insufficient memory for java")
+			sys.exit(1)
+		elif not version in myout.split("\n")[0]:
 			print("[ERROR] Must use " + myprogram + " verion: " + version)
 			sys.exit(1)
 
@@ -313,7 +318,7 @@ def check_file_exists_and_nonzero(myfile):
 	for i in myfile.split(","):
 		# if (os.path.isfile(i)):
 		if (os.path.isfile(os.path.expanduser(i))):
-			if (os.path.getsize(i) == 0):
+			if (os.path.getsize(os.path.expanduser(i)) == 0):
 				print(i + " is empty. Exiting")
 				sys.exit(1)
 		else:
@@ -472,6 +477,7 @@ class Step1(Step):
 		# first a line of awk: we want only lines where normal has depth > cutoff
 		# and at least one of the tumor samples has depth > cutoff
 		# and we want only variants
+		# (this awk is implemented in Python in the function filter_pileup above, but can't figure out how to make it run fast)
 		awkcmd = "awk -v num=" + str(self.args.numsamp) + " -v cutoff=" + str(self.args.mindepth) + " -v minad=" + str(self.args.minad) + """ '{
 			# reduce pileup by only printing variants
 
@@ -769,6 +775,8 @@ class Step5(Step):
 		self.vcf_coding = self.args.reportdir + "/report.coding.vcf"
 		# vcf report, filtered for coding regions + somatic variants
 		self.vcf_somatic = self.args.reportdir + "/report.coding.somatic.vcf"
+		# vcf report, add PV4
+		self.vcf_somatic_pv4 = self.args.reportdir + "/report.coding.somatic.pv4.vcf"
 		# vcf report, filtered for PD_L > 0
 		self.vcf_PD = self.args.reportdir + "/report.coding.PDfilter.vcf"
 		# vcf report, filtered for PD_U < 0
@@ -878,8 +886,32 @@ class Step5(Step):
 		with open(report_out, "w") as g:
 			with open(report_in, 'r') as f:
 				for line in f:
-					if (line.startswith("#") or any(k in line.split()[7] for k in featurelist)):
+					# header line
+					if line.startswith("#"): 
+						# write to file
 						g.write(line)
+						# this is a hack to add the strand bias into the header
+						if line.startswith('##FORMAT=<ID=ADR,'):
+							g.write('##FORMAT=<ID=SB,Number=1,Type=Float,Description="P-value for strand bias (exact test)">\n')
+					# non-header line
+					elif any(k in line.split()[7] for k in featurelist):
+
+						# get indices of forward and reverse read counts
+						irdf = line.split()[8].split(":").index('RDF')
+						irdr = line.split()[8].split(":").index('RDR')
+						iadf = line.split()[8].split(":").index('ADF')
+						iadr = line.split()[8].split(":").index('ADR')
+						
+						# variable for format fields, so can add strand bias
+						format_fields = ""
+
+						# calculate strand bias
+						for i in range(9,len(line.split())):
+							oddsratio, pvalue = stats.fisher_exact([[line.split()[i].split(':')[irdf], line.split()[i].split(':')[irdr]], [line.split()[i].split(':')[iadf], line.split()[i].split(':')[iadr]]])
+							format_fields += line.split()[i] + ":" + str(round(pvalue,3)) + "\t"
+
+						# write to file
+						g.write("\t".join(line.split()[0:9]) + ":SB\t" + format_fields.strip() + "\n")
 
 	def filterCodingSomatic(self, report_in, report_out):
 		"""Filter for the coding + somatic variants"""
@@ -935,6 +967,24 @@ class Step5(Step):
 				mycmd = "cat " + i + " | " + self.args.bin + "/vcf2newreport_for_v4.1.C.py " + reportoptions + " | sed 's|,|, |g' > " + i.replace('.vcf', '.txt')
 				myout = run_cmd(mycmd, self.args.verbose, 1)
 
+	def addPV4(self, report_in, report_out):
+		"""Add PV4, defined by samtools as "P-values for 1) strand bias (exact test); 2) baseQ bias (t-test); 3) mapQ bias (t); 4) tail distance bias (t)" """
+		# see http://samtools.sourceforge.net/mpileup.shtml
+
+		# http://pyvcf.readthedocs.org/en/latest/INTRO.html
+		# Annoyingly, "in general modifying and writing VCF files is not covered well (yet) in PyVCF" 
+		# https://github.com/jamescasbon/PyVCF/issues/82
+		# so stop using it and do it by hand ! 
+
+		#vcf_reader = vcf.Reader(open(myvcf, 'r'))
+		#for record in vcf_reader:
+		#	print record
+		#	for j in record.samples:
+		#		oddsratio, pvalue = stats.fisher_exact([[j['RDF'], j['RDR']], [j['ADF'], j['ADR']]])
+		#		print(pvalue)
+
+		pass
+
 	def runPostEffProcessing(self):
 		"""Do the Post-SnpEff Processing - Filter vcf and convert to human readable report"""
 
@@ -946,6 +996,8 @@ class Step5(Step):
 		self.filterCoding(self.vcf_all, self.vcf_coding)
 		# filter for somatic region
 		self.filterCodingSomatic(self.vcf_coding, self.vcf_somatic)
+		# TESTING
+		self.addPV4(self.vcf_somatic, self.vcf_somatic_pv4)
 		# PD filter
 		self.filterCodingPD(self.vcf_coding, self.vcf_PD, self.vcf_PD_rev)
 		# convert vcfs to human readable tsv reports

@@ -24,6 +24,10 @@ The following programs must be in your `PATH`:
 - [vcflib](https://github.com/ekg/vcflib)
 - [bcftools](https://samtools.github.io/bcftools/bcftools.html) v1.2
 
+The following Python packages are required:
+
+- [scipy](http://www.scipy.org)
+
 **Installation**
 
 Installing SAVI is simple. First, clone this repo. Then `make` the binaries in the SAVI/bin directory:

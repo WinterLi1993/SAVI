@@ -21,6 +21,10 @@ sys.path.append(software + "/../..")
 # import savi wrapper
 from SAVI import savi 
 
+# note for the tests to completely work, you have to pass in the ref hg19_chr.fold.25.fa
+# at https://rabadan.c2b2.columbia.edu/public/savi_resources/
+# savitest.py --ref hg19_chr.fold.25.fa
+
 def cleanUp(myfile):
 	"""Clean Up"""
 

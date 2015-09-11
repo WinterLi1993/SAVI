@@ -15,6 +15,7 @@ import re
 d_savi_info = {}			# dict for entries in INFO field pertaining to savi
 d_samples = {}				# dict for sample names
 format = []				# list for entries in FORMAT field
+format_indices = []			# list of indices for the specific FORMAT fields we want
 header=[]				# list for entries in header
 isfirst = 1				# boolean isfirst - if true, we print the header once and turn off
 number_samples = 0			# number of samples in vcf file
@@ -64,6 +65,7 @@ d_readable = {	'#CHROM':'#chromosome',
 		'RDR':'ref_reverse_depth',
 		'ADF':'alt_forward_depth',
 		'ADR':'alt_reverse_depth',
+		'SB':'strand_bias',
 		'_P':'_presence_bool',
 		'_PF':'_presence_posterior',
 		'_F':'_freq',
@@ -93,7 +95,7 @@ d_flip = { 	'up':'down',
 # specify the format fields we want - only a subset of total:
 # ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] to
 # format = ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] 
-format = ['RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] 
+format = ['RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR', 'SB'] 
 # make a human readable version:
 format_readable = [d_readable[j] for j in format]
 
@@ -150,7 +152,8 @@ for line in contents:
 	# if line is double # header, accumulate some dicts
 	if ( line[0:2] == "##" ):
 		# if argument, print double # header
-		if (args.header): print(line)
+		if (args.header): 
+			print(line)
 
 		# e.g., double # header might look like this:
 		# ##INFO=<ID=RS,Number=1,Type=Integer,Description="dbSNP ID (i.e. rs number)">
@@ -208,7 +211,7 @@ for line in contents:
 					print(d_readable['SDP'] + "_" + d_samples[str(i)] + "\t"),
 				else:
 					print(d_readable['SDP'] + "_" + str(i) + "\t"),
-
+					
 			# print the savi INFO part of header (selective parts of the INFO field)
 			for myfield in sorted(d_savi_info):
 				# match savi fields, which can look like this:
@@ -252,6 +255,15 @@ for line in contents:
 
 			print("\n"),
 
+			# find indices of subfields of the FORMAT field that we want
+			format_indices = [
+				line.split()[8].split(':').index('SDP'), line.split()[8].split(':').index('RD'), line.split()[8].split(':').index('AD'),
+				line.split()[8].split(':').index('RBQ'), line.split()[8].split(':').index('ABQ'),
+				line.split()[8].split(':').index('RDF'), line.split()[8].split(':').index('RDR'), 
+				line.split()[8].split(':').index('ADF'), line.split()[8].split(':').index('ADR'), 
+				line.split()[8].split(':').index('SB')
+			]
+
 			# turn off flag
 			isfirst = 0
 
@@ -281,6 +293,8 @@ for line in contents:
 		#     0        1     2      3     4       5        6         7       8
 		# ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', 'sample_1', 'sample_2']
 		del linelist[5:7]
+		#     0        1     2      3     4       5        6         7            8
+		# ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'INFO', 'FORMAT', 'sample_1', 'sample_2']
 
 		# print first part of line, not including ID, but otherwise up until but not including INFO field
 		# print chrom pos
@@ -386,12 +400,12 @@ for line in contents:
  				# reset
  				savi_change = "nochange"
 
- 		# print FORMAT part of header
+ 		# print FORMAT part 
  		for i in range(7,7+number_samples): 
  			# but only want subset: filter from
- 			# ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] to
- 			# ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR']
- 			tmpformat = [v for j, v in enumerate(linelist[i].split(":")) if j not in [0,1,3,6,7]]
+ 			# ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR', 'SB'] to
+ 			# ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR', 'SB']
+ 			tmpformat = [linelist[i].split(":")[v] for v in format_indices]
 			# isolate SDP column
  			line_7 += tmpformat[0] + "\t"
 			# join the rest
