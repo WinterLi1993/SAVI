@@ -876,7 +876,8 @@ class Step5(Step):
 		"""Filter for the coding region - 
 		get useful variants and variants in the coding region. The idea is to capture these SnpEff features:
 		inframe_deletion *inframe_insertion frameshift_variant* initiator_codon_variant missense_variant* synonymous_variant*
-		splice_acceptor* splice_donor* splice_region* start_lost* start_gained* stop_gained* stop_lost* stop_retained_variant*"""
+		splice_acceptor* splice_donor* splice_region* start_lost* start_gained* stop_gained* stop_lost* stop_retained_variant*;
+		Also, add strand bias p-value"""
 
 		if (self.args.verbose): print("[comment] filter " + report_in + " for coding region, produce: " + report_out)
 
@@ -893,8 +894,10 @@ class Step5(Step):
 						# this is a hack to add the strand bias into the header
 						if line.startswith('##FORMAT=<ID=ADR,'):
 							g.write('##FORMAT=<ID=SB,Number=1,Type=Float,Description="P-value for strand bias (exact test)">\n')
-					# non-header line
+					# if non-header line with desired features 
 					elif any(k in line.split()[7] for k in featurelist):
+
+						# print line, but add strand bias p-value
 
 						# get indices of forward and reverse read counts
 						irdf = line.split()[8].split(":").index('RDF')
