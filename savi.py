@@ -911,7 +911,7 @@ class Step5(Step):
 						# calculate strand bias
 						for i in range(9,len(line.split())):
 							oddsratio, pvalue = stats.fisher_exact([[line.split()[i].split(':')[irdf], line.split()[i].split(':')[irdr]], [line.split()[i].split(':')[iadf], line.split()[i].split(':')[iadr]]])
-							format_fields += line.split()[i] + ":" + str(round(pvalue,3)) + "\t"
+							format_fields += line.split()[i] + ":" + str(round(pvalue,6)) + "\t"
 
 						# write to file
 						g.write("\t".join(line.split()[0:9]) + ":SB\t" + format_fields.strip() + "\n")

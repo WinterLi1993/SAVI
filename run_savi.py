@@ -325,9 +325,9 @@ def run_vlad_code_compare(args, savidir, inplist):
 
 		# fix vcf header
 		with open(savidir + "/header_addition.txt", 'a') as f:
-			f.write("##INFO=<ID=PD" + str_a + str_b + "_F,Number=1,Type=Integer,Description=\"Savi freq delta for samples " + str_a + " vs " + str_b + "\">\n")
-			f.write("##INFO=<ID=PD" + str_a + str_b + "_L,Number=1,Type=Integer,Description=\"Savi freq delta lower bound for samples " + str_a + " vs " + str_b + "\">\n")
-			f.write("##INFO=<ID=PD" + str_a + str_b + "_U,Number=1,Type=Integer,Description=\"Savi freq delta upper bound for samples " + str_a + " vs " + str_b + "\">\n")
+			f.write("##INFO=<ID=PD" + str_a + str_b + "_F,Number=1,Type=Integer,Description=\"Savi freq delta for sample " + str_a + " vs " + str_b + "\">\n")
+			f.write("##INFO=<ID=PD" + str_a + str_b + "_L,Number=1,Type=Integer,Description=\"Savi freq delta lower bound for sample " + str_a + " vs " + str_b + "\">\n")
+			f.write("##INFO=<ID=PD" + str_a + str_b + "_U,Number=1,Type=Integer,Description=\"Savi freq delta upper bound for sample " + str_a + " vs " + str_b + "\">\n")
 
 	# a there was at least one savi comparison and there are more than 2 samples, run a 1 vs ALL comparision per order of JiGuang
 	if ( pairwise_list and len(inplist) > 2 ):
