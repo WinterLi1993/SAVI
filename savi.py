@@ -88,8 +88,8 @@ def get_arg():
 	parser.add_argument("--presence",			default="1e-6",		help="the SAVI presence posterior (default: 1e-6). Where it's used: step 4")
 	parser.add_argument("--conf",				default="1e-5",		help="the SAVI conf (default: 1e-5). Where it's used: step 4")
 	parser.add_argument("--precision",	type=int,	default=0,		help="the SAVI precision (default: 0). Where it's used: step 4")
-	parser.add_argument("--rnabams",						help="comma-delimited list of rna bam files (.bai indices should be present)")
-	parser.add_argument("--nopv4",		action="store_true",			help="do not run bcftools to compute PV4 (default: off). Where it's used: step 5")
+	# parser.add_argument("--rnabams",						help="comma-delimited list of rna bam files (.bai indices should be present)")
+	# parser.add_argument("--nopv4",		action="store_true",			help="do not run bcftools to compute PV4 (default: off). Where it's used: step 5")
 	parser.add_argument("--noindeldepth",	action="store_true",			help="do not include include indel reads in total depth count (SDP) (default: off) (note: asteriks in mpileup are included irrespective of this flag). Where it's used: step 2")
 	parser.add_argument("--rdplusad",	action="store_true",			help="use reference-agreeing reads plus alternate-calling reads (RD+AD) rather than total depth (SDP) as input to savi (default: off). Where it's used: step 2")
 	# parser.add_argument("--hybrid",	action="store_true",			help="as input to savi, use reference-agreeing reads plus alternate-calling reads (RD+AD) for first sample (normal) and SDP for other samples (default: off) (note: this flag changes read depths on positions where there are multiallelic variants)")
@@ -98,7 +98,7 @@ def get_arg():
 	parser.add_argument("--noclean",	action="store_true",			help="do not delete temporary intermediate files (default: off)")
 	parser.add_argument("--noerror",	action="store_true",			help="do not check for errors (default: off)")
 	parser.add_argument("--verbose","-v",	action="store_true",			help="echo commands (default: off)")
-	parser.add_argument("--superverbose",	action="store_true",			help="echo commands (default: off)")
+	parser.add_argument("--superverbose",	action="store_true",			help="print output of the programs called in each step (default: off)")
 
 	args = parser.parse_args()
 

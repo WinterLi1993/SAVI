@@ -1,15 +1,17 @@
 Status: Active Development
 
 ## SAVI
-SAVI - *statistical algorithm for variant identification* - is a program for calling variants in sequencing data written by Vladimir and Oliver with contributions from Jiguang, Francesco, Alex, and Hossein.
+SAVI - *statistical algorithm for variant identification* - is a program for calling variants in genomic sequencing data written by Vladimir and Oliver with contributions from Jiguang, Francesco, Alex, and Hossein.
 
 **Introduction**
 
 Why run SAVI? In a word, SAVI is for finding needles in haystacks. It can boil a very large dataset into a small list of mutations. In bioinformatics, *calling variants* can mean two different things: (1) simply enumerating all differences between some sequence data and a reference; and (2) determining which of those differences are significant and not likely to be error. SAVI does the later, while a program like Samtools mpileup will do the former. In practice, SAVI is a way of sifting through large amounts of data to pull out the significant mutations using a Bayesian probability model. A common use case is identifying deleterious mutations in cancer, given normal and tumor sequence data---an often-encountered problem in bioinformatics. The output of SAVI is a list of candidate genomic alterations each annotated with a probability of how likely it is to be real. 
 
-SAVI works with standard bioinformatic file formats. As input, the SAVI pipeline takes a bam files and it produces a vcf file as output. In the output vcf file, the SAVI probabilities are added in the INFO field. 
+SAVI works with standard bioinformatic file formats. As input, the SAVI pipeline takes bam files and it produces vcf files as output. In the output vcf files, the SAVI probabilities are added in the INFO field. 
 
 If you're interested in the mathematical underpinings of SAVI, you can read about it in [this BMC Systems Biology paper](https://www.biomedcentral.com/1752-0509/7/S2/S2).
+
+The complete SAVI manual is available [here](https://github.com/RabadanLab/SAVI/blob/master/manual.pdf).
 
 **Dependencies**
 
@@ -79,7 +81,7 @@ By default, step 3 is not run and a standard diploid prior is used instead.
 
 **Usage Examples**
 
-The most common use case for SAVI is paired normal tumor bam files (mapped to the same reference, of course) where the goal is to find the significant mutations in the tumor sample.
+The most common use case for SAVI is paired normal-tumor bam files (mapped to the same reference, of course) where the goal is to find the significant mutations in the tumor sample.
 Before we run SAVI, we need to make sure of the following:
 
 - the reference fasta we're providing to SAVI is the same one to which we've mapped our bam files
@@ -116,3 +118,4 @@ Instead, it will merely tell us what it thinks are present---a much longer list 
 - Are your bams sorted by position? - Samtools mpileup requires "position sorted alignment files."
 - Did you index your bams to produce bai files? - Samtools won't be able to extract regions of your bam files if they have not been indexed.
 - Are both the tumor and normal bam files mapped to the same reference?
+- Are you using the proper region identifiers? Some references use *chr1* while others merely use *1*. 
