@@ -289,7 +289,9 @@ It's a tautology to state that the output of the pipeline is highly dependent on
 Yet it's important to emphasize this all the same and, for this reason, you may find yourself playing with input flags or even going into the wrapper to change some parameters as you see fit.
 As a simple example, the default depth cutoff is 10.
 However, you might want to reduce this if your sample has low depth or turn it up if your sample has high depth.
-There is a trade-off between automation and flexibility and no robot can choose your parameters for you, although the wrapper uses sensible defaults.
+There is a trade-off between automation and flexibility and no robot can choose your parameters for you, although the wrapper uses sensible defaults.\\
+
+Choosing which variants to filter in your final report is very much a tug-of-war between letting in false positives and throwing out true positives. In this game of trade-offs, the goal is to maximize sensitivity and specificity together, but you may have to throw away the rare low coverage real variant to squelch a bunch of noise. The best way to tune the parameters is to obtain an ``answer key" for one of your samples---i.e., a list of verified somatic mutations---and then make a ROC curve to pick the optimal value for the parameter. 
 
 \subsection{An In-Depth Look at the Pipeline Wrapper}\label{In Depth}
 
@@ -520,6 +522,8 @@ Arguments:
                         reads (RD+AD) rather than total depth (SDP) as input
                         to savi (default: off). Where it's used: step 2
   --index INDEX         an index used in naming of output files (default: 0)
+  --vcf VCF             (for running step 5 as a stand-alone only) vcf to use
+                        as input
   --noncoding           use snpEff to find all transcripts, not just only
                         protein transcripts (default: off). Where it's used:
                         step 5

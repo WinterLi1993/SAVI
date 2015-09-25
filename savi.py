@@ -94,6 +94,7 @@ def get_arg():
 	parser.add_argument("--rdplusad",	action="store_true",			help="use reference-agreeing reads plus alternate-calling reads (RD+AD) rather than total depth (SDP) as input to savi (default: off). Where it's used: step 2")
 	# parser.add_argument("--hybrid",	action="store_true",			help="as input to savi, use reference-agreeing reads plus alternate-calling reads (RD+AD) for first sample (normal) and SDP for other samples (default: off) (note: this flag changes read depths on positions where there are multiallelic variants)")
 	parser.add_argument("--index",				default="0",		help="an index used in naming of output files (default: 0)")
+	parser.add_argument("--vcf",							help="(for running step 5 as a stand-alone only) vcf to use as input")
 	parser.add_argument("--noncoding",	action="store_true",			help="use snpEff to find all transcripts, not just only protein transcripts (default: off). Where it's used: step 5")
 	parser.add_argument("--noclean",	action="store_true",			help="do not delete temporary intermediate files (default: off)")
 	parser.add_argument("--noerror",	action="store_true",			help="do not check for errors (default: off)")
@@ -764,7 +765,10 @@ class Step5(Step):
 
 		# define description as well as input and output attributes
 		self.set_descrip("Add annotation to the vcf")
-		self.set_input(self.args.reportdir + "/finalsavi.vcf")
+		if self.args.vcf:
+			self.set_input(self.args.vcf)
+		else:
+			self.set_input(self.args.reportdir + "/finalsavi.vcf")
 
 		# set output prefix, output reports
 		self.outprefix = self.args.reportdir + "/tmp_" + self.args.index
