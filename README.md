@@ -17,7 +17,7 @@ The complete SAVI manual is available [here](https://github.com/RabadanLab/SAVI/
 
 The following programs must be in your `PATH`:
 
-- python 
+- python (2.7 preferred)
 - java
 - [Samtools](http://samtools.sourceforge.net) v1.2
 - [SnpEff](http://snpeff.sourceforge.net) v4.1 C (i.e., `which snpEff.jar` must return a path)

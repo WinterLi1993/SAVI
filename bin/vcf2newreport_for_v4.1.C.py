@@ -80,6 +80,7 @@ d_readable = {	'#CHROM':'#chromosome',
 		'TOT_COUNTS':'cbio_total_mutation_count',
 		'dbSNPBuildID':'dbSNPBuild_for_RS',
 		'STRAND':'strand',
+		'PV4':'pv4',
 		'CAF':'snp_allele_freq',
 		'CNT':'cosmic_n.samples-mut',
 		'COMMON': 'snp.common',
@@ -162,6 +163,9 @@ for line in contents:
 
 		if match and is_savi_info_field(match.group(1)):
 			d_savi_info[match.group(1)] = "-"
+		elif match and (match.group(1) == "PV4"):
+			# if there's a PV4 field, update the INFO dict
+			d_info["PV4"] = "-"
 
 	# single # header
 	elif ( line[0:1] == "#" ):
@@ -256,13 +260,12 @@ for line in contents:
 			print("\n"),
 
 			# find indices of subfields of the FORMAT field that we want
-			format_indices = [
-				line.split()[8].split(':').index('SDP'), line.split()[8].split(':').index('RD'), line.split()[8].split(':').index('AD'),
-				line.split()[8].split(':').index('RBQ'), line.split()[8].split(':').index('ABQ'),
-				line.split()[8].split(':').index('RDF'), line.split()[8].split(':').index('RDR'), 
-				line.split()[8].split(':').index('ADF'), line.split()[8].split(':').index('ADR'), 
-				line.split()[8].split(':').index('SB')
-			]
+			if all(j in line.split()[8] for j in ['SDP','RD','AD','RBQ','ABQ','RDF','RDR','ADF','ADR','SB']):
+				format_indices = [ line.split()[8].split(':').index('SDP'), line.split()[8].split(':').index('RD'), line.split()[8].split(':').index('AD'),
+							line.split()[8].split(':').index('RBQ'), line.split()[8].split(':').index('ABQ'),
+							line.split()[8].split(':').index('RDF'), line.split()[8].split(':').index('RDR'), 
+							line.split()[8].split(':').index('ADF'), line.split()[8].split(':').index('ADR'), 
+							line.split()[8].split(':').index('SB') ]
 
 			# turn off flag
 			isfirst = 0
@@ -405,11 +408,12 @@ for line in contents:
  			# but only want subset: filter from
  			# ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR', 'SB'] to
  			# ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR', 'SB']
- 			tmpformat = [linelist[i].split(":")[v] for v in format_indices]
-			# isolate SDP column
- 			line_7 += tmpformat[0] + "\t"
-			# join the rest
-			line_9 += "\t".join(tmpformat[1:]) + "\t"
+			if format_indices:
+				tmpformat = [linelist[i].split(":")[v] for v in format_indices]
+				# isolate SDP column
+				line_7 += tmpformat[0] + "\t"
+				# join the rest
+				line_9 += "\t".join(tmpformat[1:]) + "\t"
 
 		# print out line
 		print(line_1 + line_2 + line_3 + line_4 + line_5 + line_6 + line_7 + line_8 + line_9)

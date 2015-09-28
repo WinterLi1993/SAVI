@@ -94,13 +94,13 @@ Switching from theory to practice, to run SAVI the following programs must be in
 \begin{itemize}
 \tightlist
 \item
-  python
+  python (2.7 preferred)
 \item
   java
 \item
   \href{http://samtools.sourceforge.net}{Samtools} v1.2
 \item
-  \href{http://snpeff.sourceforge.net}{SnpEff} v4.1 C (i.e., \texttt{which\ snpEff.jar} must return a path)
+  \href{http://snpeff.sourceforge.net}{SnpEff} v4.1 (i.e., \texttt{which\ snpEff.jar} must return a path)
 \item
   \href{http://samtools.sourceforge.net/tabix.shtml}{tabix}
 \item
@@ -119,7 +119,7 @@ Switching from theory to practice, to run SAVI the following programs must be in
 
 \subsubsection{Notes}
 
-\noindent To get vcflib, clone the repository using the \texttt{--recursive} flag because it contains sub-repositories:
+\noindent To get vcflib, clone the repository using the \texttt{-{}-recursive} flag because it contains sub-repositories:
 
 \begin{Verbatim}
 git clone --recursive https://github.com/ekg/vcflib.git
@@ -264,7 +264,19 @@ SAVI/savi.py --bams tumor.bam --ref hg19_chr.fold.25.fa \
 
 \noindent In this case, SAVI won't be able to call somatic variants. Instead, it
 will merely tell us what variants it thinks are present---a much longer list than
-if we had the normal sample for comparison.
+if we had the normal sample for comparison.\\
+
+\noindent Suppose we have more than two samples and want to make specific inter-sample comparisons.
+Look at the following command:
+
+\begin{Verbatim}
+SAVI/savi.py --bams normal.bam,tumor.bam,relapse.bam \
+--names NORMAL,TUMOR,RELAPSE --ref hg19_chr.fold.25.fa \
+--outputdir outputdir --compsamp 2:1,3:1,3:2 \
+--annvcf dbSnp138.vcf,meganormal186TCGA.fix.sort.vcf,...
+\end{Verbatim}
+
+\noindent Here we have three samples---normal, tumor, and relapse---and the \textit{-{}-compsamp} flag tells the program to compare tumor to normal, relapse to normal, and relapse to tumor. If we didn't use this flag, we'd only get the default comparisons of tumor:normal and relapse:normal. Note we didn't use the \textit{-{}-region} flag here, so this will run on the full .bam files.
 
 \subsection{Common Problems}\label{Common Problems}
 
@@ -289,7 +301,7 @@ It's a tautology to state that the output of the pipeline is highly dependent on
 Yet it's important to emphasize this all the same and, for this reason, you may find yourself playing with input flags or even going into the wrapper to change some parameters as you see fit.
 As a simple example, the default depth cutoff is 10.
 However, you might want to reduce this if your sample has low depth or turn it up if your sample has high depth.
-There is a trade-off between automation and flexibility and no robot can choose your parameters for you, although the wrapper uses sensible defaults.\\
+There is a trade-off between automation and flexibility and no robot can choose your parameters for you, although the wrapper uses sensible defaults.
 
 Choosing which variants to filter in your final report is very much a tug-of-war between letting in false positives and throwing out true positives. In this game of trade-offs, the goal is to maximize sensitivity and specificity together, but you may have to throw away the rare low coverage real variant to squelch a bunch of noise. The best way to tune the parameters is to obtain an ``answer key" for one of your samples---i.e., a list of verified somatic mutations---and then make a ROC curve to pick the optimal value for the parameter. 
 
@@ -384,7 +396,7 @@ The default filter in our two sample example looks like this:
 
 \noindent The second thing the program does is to add the rest of the stats without further filtering. Later, in Step 5, we apply an additional filter on \texttt{PD21\_L}, the lower bound of the frequency delta, to find significant variants in one of the reports.\\
 
-\noindent If we had multiple samples, we could make any comparisons we like by adding this information in the \texttt{--compsamp} flag. For example, 
+\noindent As we saw above, if we had multiple samples, we could make any comparisons we like by adding this information in the \texttt{-{}-compsamp} flag. For example, 
 
 \begin{center}
 \texttt{--compsamp 2:1,3:1,3:2}
@@ -395,7 +407,7 @@ The default filter in our two sample example looks like this:
 \subsubsection{Step 5 and Pipeline Output}
 
 Step 5 is a wrapper for SnpEff along with some commands to filter the final reports in various ways.
-After annotating genomic features with SnpEff, Step 5 loops over the comma-delimited list of vcf files given in the \texttt{--annvcf} flag, so you can provide as many external annotations as you like.
+After annotating genomic features with SnpEff, Step 5 loops over the comma-delimited list of vcf files given in the \texttt{-{}-annvcf} flag, so you can provide as many external annotations as you like.
 We typically use a series of vcfs like: 
 
 \begin{Verbatim}
