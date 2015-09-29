@@ -11,11 +11,7 @@ __author__ = "Oliver"
 __version__ = "Revision: 2.0"
 __date__ = "Date: 07-2015"
 
-import argparse
-import sys 
-import re
-import subprocess
-import os
+import argparse, sys, re, subprocess, os, time
 from distutils import spawn
 # import vcf
 from scipy import stats
@@ -328,6 +324,19 @@ def check_file_exists_and_nonzero(myfile):
 
 # -------------------------------------
 
+def mytimer(myfunc):
+	"""Decorator for timing a Step's run function"""
+	# http://stackoverflow.com/questions/5478351/python-time-measure-function
+
+	def mynewfunc(*args, **kwargs):
+		startTime = time.time()
+		myfunc(*args, **kwargs)
+		print('[step delta t] {} sec'.format(int(time.time() - startTime)))
+
+	return mynewfunc
+
+# -------------------------------------
+
 class Cleaner():
 	"""A class whose object keeps a set of files to delete from the Steps"""
 
@@ -395,7 +404,7 @@ class Step(object):
 		# extra carriage return first for all steps other than 1
 		if self.args.verbose and self.step_index != "1": print
 		# print step and description
-		print('[STEP ' + self.step_index + '] ' + self.description + '\n')
+		print('[STEP ' + self.step_index + '] ' + self.description)
 
 # -------------------------------------
 
@@ -459,7 +468,8 @@ class Step1(Step):
 
 		return None
 
-	# override parent's run method
+	# override parent's run method, decorate with mytimer to benchmark time
+	@mytimer
 	def run(self):
 		"""The run method calls shell(system) commands to do step1 - namely, it calls samtools mpileup to convert bam to mpileup"""
 
@@ -572,6 +582,7 @@ class Step2(Step):
 		self.set_output(self.args.outputdir + "/" + self.args.index + ".vcf.bgz")
 
 	# override parent's run method
+	@mytimer
 	def run(self):
 		"""The run method calls shell(system) commands to do step2 - namely, it converts mpileup to vcf"""
 
@@ -640,6 +651,7 @@ class Step3(Step):
 		self.set_descrip("Construct the prior for each sample")
 		self.set_input(self.args.outputdir + "/" + self.args.index + ".all.vcf.bgz")
 
+	@mytimer
 	def run(self):
 		"""The run method calls shell(system) commands to do step3 - namely, compute the prior"""
 
@@ -696,6 +708,7 @@ class Step4(Step):
 		self.vcf_final = self.args.reportdir + "/finalsavi.vcf.bgz"
 
 	# override parent's run method
+	@mytimer
 	def run(self):
 		"""The run method calls shell(system) commands to do step4 - namely, call savi proper"""
 
@@ -1010,6 +1023,7 @@ class Step5(Step):
 		# convert vcfs to human readable tsv reports
 		self.vcf2tsv([self.vcf_coding, self.vcf_somatic, self.vcf_PD, self.vcf_PD_rev])
 
+	@mytimer
 	def run(self):
 		"""The run method calls shell(system) commands to do step5 - namely, annotate the vcf"""
 
