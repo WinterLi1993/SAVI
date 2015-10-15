@@ -84,12 +84,10 @@ def get_arg():
 	parser.add_argument("--presence",			default="1e-6",		help="the SAVI presence posterior (default: 1e-6). Where it's used: step 4")
 	parser.add_argument("--conf",				default="1e-5",		help="the SAVI conf (default: 1e-5). Where it's used: step 4")
 	parser.add_argument("--precision",	type=int,	default=0,		help="the SAVI precision (default: 0). Where it's used: step 4")
-	# parser.add_argument("--rnabams",						help="comma-delimited list of rna bam files (.bai indices should be present)")
-	# parser.add_argument("--nopv4",		action="store_true",			help="do not run bcftools to compute PV4 (default: off). Where it's used: step 5")
 	parser.add_argument("--noindeldepth",	action="store_true",			help="do not include include indel reads in total depth count (SDP) (default: off) (note: asteriks in mpileup are included irrespective of this flag). Where it's used: step 2")
 	parser.add_argument("--rdplusad",	action="store_true",			help="use reference-agreeing reads plus alternate-calling reads (RD+AD) rather than total depth (SDP) as input to savi (default: off). Where it's used: step 2")
-	# parser.add_argument("--hybrid",	action="store_true",			help="as input to savi, use reference-agreeing reads plus alternate-calling reads (RD+AD) for first sample (normal) and SDP for other samples (default: off) (note: this flag changes read depths on positions where there are multiallelic variants)")
 	parser.add_argument("--index",				default="0",		help="an index used in naming of output files (default: 0)")
+	parser.add_argument("--rnabams",						help="comma-delimited list of rna bam files against which to cross-check your variants (.bai indices should be present)")
 	parser.add_argument("--vcf",							help="(for running step 5 as a stand-alone only) vcf to use as input")
 	parser.add_argument("--noncoding",	action="store_true",			help="use snpEff to find all transcripts, not just only protein transcripts (default: off). Where it's used: step 5")
 	parser.add_argument("--noclean",	action="store_true",			help="do not delete temporary intermediate files (default: off)")
@@ -421,6 +419,8 @@ class Step1(Step):
 		self.set_descrip("Convert bams to mpileup and, if not building custom prior, filter for variants only")
 		self.set_input(self.args.bams)
 		self.set_output(self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt")
+		# for rna bams:
+		self.output2 = self.args.outputdir + "/" + "tmp_mpile." + str(int(self.args.index) + 1) + ".txt"
 
 	def filter_pileup(self, myline):
 		"""Filter line of pileup"""
@@ -565,6 +565,44 @@ class Step1(Step):
 		# the output of this step is needed for the next step, but ultimately we want to delete it
 		self.intermediates.append(self.output)
 
+		# small violation of DRY: repeat with modifications for RNA
+		if self.args.rnabams:
+			# define awkcmd
+			awkcmd = "awk -v num=" + str(len(self.args.rnabams.split(","))) + " -v cutoff=" + str(self.args.mindepth) + " -v minad=" + str(self.args.minad) + """ '{
+				# reduce pileup by only printing variants
+
+				myflag=0; # flag to print line
+
+				# loop thro samples
+				for (i = 0; i < num; i++)
+				{
+					# only consider if sample depth greater than or eq to cutoff
+					if ($(4+i*3) >= cutoff)
+					{
+						# get read string
+						mystr=$(5+i*3);
+						# eliminate read starts with qual scores ACTG (e.g., stuff like ^A ^C etc)
+						gsub(/\^[ACTGNactgn+-]/,"",mystr);
+						# count ACTGN mismatches
+						altdepth = gsub(/[ACTGNactgn]/,"",mystr);
+						# if sufficient number of mismatches, flag line to print
+						if (altdepth >= minad)
+						{
+							myflag=1; break;
+						}
+					}
+				}
+
+				if (myflag)
+				{
+					print;
+				}
+			}'"""
+
+			mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, regionflag, self.args.rnabams.replace(',', ' '), awkcmd, self.output2)
+			run_cmd(mycmd, self.args.verbose, 1)
+			self.intermediates.append(self.output2)
+
 # -------------------------------------
 
 class Step2(Step):
@@ -580,6 +618,9 @@ class Step2(Step):
 		self.set_descrip("Convert mpileup to vcf")
 		self.set_input(self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt")
 		self.set_output(self.args.outputdir + "/" + self.args.index + ".vcf.bgz")
+		# for rna bams:
+		self.input2 = self.args.outputdir + "/" + "tmp_mpile." + str(int(self.args.index) + 1) + ".txt"
+		self.output2 = self.args.outputdir + "/" + str(int(self.args.index) + 1) + ".vcf"
 
 	# override parent's run method
 	@mytimer
@@ -626,6 +667,11 @@ class Step2(Step):
 		mycmd = "tabix -p vcf {}".format(self.output)
 		run_cmd(mycmd, self.args.verbose, 1)
 
+		# RNA
+		if self.input2:
+			mycmd = "cat {} | {}/pileup2multiallele_vcf {} > {}".format(self.input2, self.args.bin, oscanflag, self.output2)
+			run_cmd(mycmd, self.args.verbose, 1)
+
 		# if empty
 		# if [ $( zcat ${outputdir}/${SGE_TASK_ID}.vcf.bgz | sed '/^#/d' | head | wc -l ) == 0 ]; then
 		# 	echo "[HALT SCRIPT] vcf file is empty"
@@ -633,7 +679,7 @@ class Step2(Step):
 		# fi
 
 		# the output of this step is needed for the next step, but ultimately we want to delete it
-		for i in [self.output, self.output + ".tbi"]:
+		for i in [self.output, self.output + ".tbi", self.output2]:
 			self.intermediates.append(i)
 
 # -------------------------------------
@@ -986,6 +1032,11 @@ class Step5(Step):
 				# the sed nonsense is so Excel renders it properly
 				mycmd = "cat " + i + " | " + self.args.bin + "/vcf2newreport_for_v4.1.C.py " + reportoptions + " | sed 's|,|, |g' > " + i.replace('.vcf', '.txt')
 				myout = run_cmd(mycmd, self.args.verbose, 1)
+
+				# if rna bams present, add depths of rna variants
+				if self.args.rnabams:
+					mycmd = self.args.bin + "/join_tsv2vcf.py " + i.replace('.vcf', '.txt') + " " + self.args.outputdir + "/" + str(int(self.args.index) + 1) + ".vcf > " + i.replace('.vcf', '.rna.txt')
+					myout = run_cmd(mycmd, self.args.verbose, 1)
 
 	def addPV4(self, report_in, report_out):
 		"""Add PV4, defined by samtools as "P-values for 1) strand bias (exact test); 2) baseQ bias (t-test); 3) mapQ bias (t); 4) tail distance bias (t)" """
