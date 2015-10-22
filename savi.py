@@ -668,7 +668,7 @@ class Step2(Step):
 		run_cmd(mycmd, self.args.verbose, 1)
 
 		# RNA
-		if self.input2:
+		if self.args.rnabams:
 			mycmd = "cat {} | {}/pileup2multiallele_vcf {} > {}".format(self.input2, self.args.bin, oscanflag, self.output2)
 			run_cmd(mycmd, self.args.verbose, 1)
 
