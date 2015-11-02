@@ -7,9 +7,7 @@
 ### Usage:
 # cat myfile.vcf | $0 > myfile.txt
 
-import argparse
-import sys
-import re
+import argparse, sys, re
 
 ### Variables
 d_savi_info = {}			# dict for entries in INFO field pertaining to savi
@@ -96,9 +94,9 @@ d_flip = { 	'up':'down',
 		'-':'-' } 
 
 # specify the format fields we want - only a subset of total:
-# ['GT', 'GQ', 'SDP', 'DP', 'RD', 'AD', 'FREQ', 'PVAL', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] to
-# format = ['SDP', 'RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR'] 
-format = ['RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR', 'SB'] 
+format = ['RD', 'AD', 'RBQ', 'ABQ', 'RDF', 'RDR', 'ADF', 'ADR']
+# ('SDP', 'SB' fields are special cases)
+
 # make a human readable version:
 format_readable = [d_readable[j] for j in format]
 
@@ -249,6 +247,11 @@ for line in contents:
 					else:
 						print(match5.group(1) + "-" + match5.group(2) + d_readable[match5.group(3)] + "\t"),
 
+			# make a special provision for 'SB' - only add it if we find it in the format field
+			if 'SB' in line.split()[8].split(':'):
+				format += ['SB']
+				format_readable += [d_readable['SB']]
+
 			# print FORMAT part of header
 			for i in range(1,1+number_samples): 
 				# use sample names if user has provided them
@@ -262,12 +265,8 @@ for line in contents:
 			print("\n"),
 
 			# find indices of subfields of the FORMAT field that we want
-			if all(j in line.split()[8] for j in ['SDP','RD','AD','RBQ','ABQ','RDF','RDR','ADF','ADR','SB']):
-				format_indices = [ line.split()[8].split(':').index('SDP'), line.split()[8].split(':').index('RD'), line.split()[8].split(':').index('AD'),
-							line.split()[8].split(':').index('RBQ'), line.split()[8].split(':').index('ABQ'),
-							line.split()[8].split(':').index('RDF'), line.split()[8].split(':').index('RDR'), 
-							line.split()[8].split(':').index('ADF'), line.split()[8].split(':').index('ADR'), 
-							line.split()[8].split(':').index('SB') ]
+			if all(j in line.split()[8] for j in ['SDP'] + format):
+				format_indices = [ line.split()[8].split(':').index(k) for k in ['SDP'] + format ]
 
 			# turn off flag
 			isfirst = 0
