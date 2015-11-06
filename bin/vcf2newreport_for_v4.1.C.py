@@ -386,13 +386,13 @@ for line in contents:
 			elif re.search(r'PD(\d+)_L', myfield):
 				if (d_savi_info[myfield] != "-"):
 					# lower bound > 0
-					if int(d_savi_info[myfield]) > 0:
+					if float(d_savi_info[myfield]) > 0:
 						savi_change = "up"
 			elif re.search(r'PD(\d+)_U', myfield):
 				if (d_savi_info[myfield] == "-"):
 					savi_change = "-"
 				# upper bound < 0
-				elif int(d_savi_info[myfield]) < 0:
+				elif float(d_savi_info[myfield]) < 0:
 					savi_change = "down"
 
 				# PD00 is a special case
