@@ -960,24 +960,27 @@ class Step5(Step):
 					# if non-header line with desired features 
 					elif any(k in line.split()[7] for k in featurelist):
 
-						# print line, but add strand bias p-value
+						try:
+							# print line, but add strand bias p-value
 
-						# get indices of forward and reverse read counts
-						irdf = line.split()[8].split(":").index('RDF')
-						irdr = line.split()[8].split(":").index('RDR')
-						iadf = line.split()[8].split(":").index('ADF')
-						iadr = line.split()[8].split(":").index('ADR')
+							# get indices of forward and reverse read counts
+							irdf = line.split()[8].split(":").index('RDF')
+							irdr = line.split()[8].split(":").index('RDR')
+							iadf = line.split()[8].split(":").index('ADF')
+							iadr = line.split()[8].split(":").index('ADR')
 						
-						# variable for format fields, so can add strand bias
-						format_fields = ""
+							# variable for format fields, so can add strand bias
+							format_fields = ""
 
-						# calculate strand bias
-						for i in range(9,len(line.split())):
-							oddsratio, pvalue = stats.fisher_exact([[line.split()[i].split(':')[irdf], line.split()[i].split(':')[irdr]], [line.split()[i].split(':')[iadf], line.split()[i].split(':')[iadr]]])
-							format_fields += line.split()[i] + ":" + str(round(pvalue,6)) + "\t"
+							# calculate strand bias
+							for i in range(9,len(line.split())):
+								oddsratio, pvalue = stats.fisher_exact([[line.split()[i].split(':')[irdf], line.split()[i].split(':')[irdr]], [line.split()[i].split(':')[iadf], line.split()[i].split(':')[iadr]]])
+								format_fields += line.split()[i] + ":" + str(round(pvalue,6)) + "\t"
 
-						# write to file
-						g.write("\t".join(line.split()[0:9]) + ":SB\t" + format_fields.strip() + "\n")
+							# write to file
+							g.write("\t".join(line.split()[0:9]) + ":SB\t" + format_fields.strip() + "\n")
+						except:
+							g.write(line)
 
 	def filterCodingSomatic(self, report_in, report_out):
 		"""Filter for the coding + somatic variants"""
