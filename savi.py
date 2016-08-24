@@ -7,9 +7,9 @@
     particularly paired tumor-normal samples, in 5 distinct steps.
 """
 
-__author__ = "Oliver"
-__version__ = "Revision: 2.0"
-__date__ = "Date: 07-2015"
+__author__ = 'Oliver'
+__version__ = 'Revision: 3.0'
+__date__ = 'Date: 07-2015'
 
 import argparse, sys, re, subprocess, os, time
 from distutils import spawn
@@ -51,9 +51,9 @@ def main():
 def get_arg():
     """Get Arguments"""
 
-    prog_description = """SAVI is a program for calling variants in high-throughput sequencing data, particularly paired tumor-normal samples. In bioinformatics, \"calling variants\" can mean two different things: (1) simply enumerating all differences between some sequence data and a reference; and (2) determining which of those differences are significant and not likely to be error. SAVI does the later, while a program like Samtools mpileup will do the former. In practice, SAVI is a way of sifting through large amounts of data to pull out the significant mutations using a Bayesian probability model. A common use case is identifying deleterious mutations in cancer, given normal and tumor sequence data---an often-encountered problem in bioinformatics. The output of SAVI is a list of candidate genomic alterations each annotated with a probability of how likely it is to be real. SAVI works with standard bioinformatic file formats. For a complete description of how to use this software, including dependencies and usage examples, see https://github.com/RabadanLab/SAVI"""
+    prog_description = '''SAVI is a program for calling variants in high-throughput sequencing data, particularly paired tumor-normal samples. In bioinformatics, \"calling variants\" can mean two different things: (1) simply enumerating all differences between some sequence data and a reference; and (2) determining which of those differences are significant and not likely to be error. SAVI does the later, while a program like Samtools mpileup will do the former. In practice, SAVI is a way of sifting through large amounts of data to pull out the significant mutations using a Bayesian probability model. A common use case is identifying deleterious mutations in cancer, given normal and tumor sequence data---an often-encountered problem in bioinformatics. The output of SAVI is a list of candidate genomic alterations each annotated with a probability of how likely it is to be real. SAVI works with standard bioinformatic file formats. For a complete description of how to use this software, including dependencies and usage examples, see https://github.com/RabadanLab/SAVI'''
 
-    # directory where this script resides             
+    # directory where this script resides
     software = os.path.dirname(os.path.realpath(__file__))
     # cwd
     cwdir = os.getcwd()
@@ -61,39 +61,39 @@ def get_arg():
     # http://docs.python.org/2/howto/argparse.html
     parser = argparse.ArgumentParser(description=prog_description)
 
-    parser.add_argument("--bams","-b", help="comma-delimited list of bam files (by convention list the normal sample first, as in: normal.bam,tumor.bam) (.bai indices should be present)")
-    parser.add_argument("--ref", help="reference fasta file with faidx index in the same directory")
-    parser.add_argument("--outputdir","-o", default = cwdir, help="the output directory (default: cwd)")
-    parser.add_argument("--region","-r", default = '', help="the genomic region to run SAVI on (default: full range) (example: chr1 or chr1:1-50000000)")
-    parser.add_argument("--names", help="sample names in a comma-delimited list, in the corresponding order of your bam files (default: names are numerical indicies)")
-    parser.add_argument("--compsamp","-c", help="comma-delimited list of colon-delimited indices of samples to compare with savi (default: everything compared to sample 1) (example: 2:1 would compare the second bam file to the first) (example: 2:1,3:1,3:2 would compare the second to the first, the third to the first, and the third to the second)")
-    parser.add_argument("--steps", default="1245", help="steps to run (default: 1,2,4,5 (i.e., all except prior generation))")
-    parser.add_argument("--ann", default="hg19", help="name of the SnpEff genome with which to annotate (default: hg19)")
-    parser.add_argument("--memory", default="4", help="the memory for the (SnpEff) Java virtual machine in gigabytes (default: 6)")
-    parser.add_argument("--scripts", default=software, help="location of scripts dir (directory where this script resides - use this option only if qsub-ing with the Oracle Grid Engine)")
-    parser.add_argument("--mindepth", type=int, default=10, help="the min tot read depth required in at least one sample - positions without this wont appear in pileup file (default: 10). Where the filtering occurs: samtools mpileup post-processing")
-    parser.add_argument("--minad", type=int, default=2, help="the min alt depth (AD) in at least one sample to output variant (default: 2). Where the filtering occurs: samtools mpileup post-processing")
-    parser.add_argument("--mapqual", type=int, default=10, help="skip alignments with mapQ less than this (default: 10). Where the filtering occurs: samtools mpileup")
-    parser.add_argument("--maxdepth", type=int, default=100000, help="max per-BAM depth option for samtools mpileup (default: 100000)")
-    parser.add_argument("--s1adpp", default="3", help="for filtered report, require the sample 1 (normal) alt depth per position to be less than this (default: 3) (note: this is NOT sample1 alt depth of the given alt but, rather, at the given position). Where the filtering occurs: generating report.coding.somatic")
-    parser.add_argument("--minallelefreq", default="4", help="Sgt1MAXFREQ (the allele frequency of any sample not including the first one, assumed to be normal) is greater than this (default: 4) Where the filtering occurs: generating the PD.report file.")
-    parser.add_argument("--annvcf", help="comma-delimited list of vcfs with which to provide additional annotation (default: none). Where it's used: SnpSift")
-    parser.add_argument("--buildprior", default=software + "/bin/prior_unif01", help="starting input prior when building the prior if step 3 is invoked (default: bin/prior_unif01)")
-    parser.add_argument("--prior", default=software + "/bin/prior_diploid01", help="prior to use if step 3 is not run (default: bin/prior_diploid01)")
-    parser.add_argument("--prioriterations", default="10", help="the number of iterations for the prior build, if step 3 is run (default: 10)")
-    parser.add_argument("--presence", default="1e-6", help="the SAVI presence posterior (default: 1e-6). Where it's used: step 4")
-    parser.add_argument("--conf", default="1e-5", help="the SAVI conf (default: 1e-5). Where it's used: step 4")
-    parser.add_argument("--precision", type=int, default=0, help="the SAVI precision (default: 0). Where it's used: step 4")
-    parser.add_argument("--noindeldepth", action="store_true", help="do not include include indel reads in total depth count (SDP) (default: off) (note: asteriks in mpileup are included irrespective of this flag). Where it's used: step 2")
-    parser.add_argument("--rdplusad", action="store_true", help="use reference-agreeing reads plus alternate-calling reads (RD+AD) rather than total depth (SDP) as input to savi (default: off). Where it's used: step 2")
-    parser.add_argument("--index", default="0", help="an index used in naming of output files (default: 0)")
-    parser.add_argument("--rnabams", help="comma-delimited list of rna bam files against which to cross-check your variants (.bai indices should be present)")
-    parser.add_argument("--vcf", help="(for running step 5 as a stand-alone only) vcf to use as input")
-    parser.add_argument("--noncoding", action="store_true", help="use snpEff to find all transcripts, not just only protein transcripts (default: off). Where it's used: step 5")
-    parser.add_argument("--noclean", action="store_true", help="do not delete temporary intermediate files (default: off)")
-    parser.add_argument("--noerror", action="store_true", help="do not check for errors (default: off)")
-    parser.add_argument("--verbose","-v", action="store_true", help="echo commands (default: off)")
-    parser.add_argument("--superverbose", action="store_true", help="print output of the programs called in each step (default: off)")
+    parser.add_argument('--bams','-b', help='comma-delimited list of bam files; list the normal sample first, as in: normal.bam,tumor.bam (.bai indices should be present)')
+    parser.add_argument('--ref', help='reference fasta file with faidx index in the same directory')
+    parser.add_argument('--outputdir','-o', default = cwdir, help='the output directory (default: cwd)')
+    parser.add_argument('--region','-r', default = '', help='the genomic region to run SAVI on (default: full range) (example: chr1 or chr1:1-50000000)')
+    parser.add_argument('--names', help='sample names in a comma-delimited list, in the corresponding order of your bam files (default: names are numerical indicies)')
+    parser.add_argument('--compsamp','-c', help='comma-delimited list of colon-delimited indices of samples to compare with savi (default: everything compared to sample 1) (example: 2:1 would compare the second bam file to the first) (example: 2:1,3:1,3:2 would compare the second to the first, the third to the first, and the third to the second)')
+    parser.add_argument('--steps', default='1245', help='steps to run (default: 1,2,4,5 (i.e., all except prior generation))')
+    parser.add_argument('--ann', default='hg19', help='name of the SnpEff genome with which to annotate (default: hg19)')
+    parser.add_argument('--memory', default='4', help='the memory for the (SnpEff) Java virtual machine in gigabytes (default: 6)')
+    parser.add_argument('--scripts', default=software, help='location of scripts dir (directory where this script resides - use this option only if qsub-ing with the Oracle Grid Engine)')
+    parser.add_argument('--mindepth', type=int, default=10, help='the min tot read depth required in at least one sample - positions without this wont appear in pileup file (default: 10). Where the filtering occurs: samtools mpileup post-processing')
+    parser.add_argument('--minad', type=int, default=2, help='the min alt depth (AD) in at least one sample to output variant (default: 2). Where the filtering occurs: samtools mpileup post-processing')
+    parser.add_argument('--mapqual', type=int, default=10, help='skip alignments with mapQ less than this (default: 10). Where the filtering occurs: samtools mpileup')
+    parser.add_argument('--maxdepth', type=int, default=100000, help='max per-BAM depth option for samtools mpileup (default: 100000)')
+    parser.add_argument('--s1adpp', default='3', help='for filtered report, require the sample 1 (normal) alt depth per position to be less than this (default: 3) (note: this is NOT sample1 alt depth of the given alt but, rather, at the given position). Where the filtering occurs: generating report.coding.somatic')
+    parser.add_argument('--minallelefreq', default='4', help='Sgt1MAXFREQ (the allele frequency of any sample not including the first one, assumed to be normal) is greater than this (default: 4) Where the filtering occurs: generating the PD.report file.')
+    parser.add_argument('--annvcf', help='comma-delimited list of vcfs with which to provide additional annotation (default: none). Where it\'s used: SnpSift')
+    parser.add_argument('--buildprior', default=software + '/bin/prior_unif01', help='starting input prior when building the prior if step 3 is invoked (default: bin/prior_unif01)')
+    parser.add_argument('--prior', default=software + '/bin/prior_diploid01', help='prior to use if step 3 is not run (default: bin/prior_diploid01)')
+    parser.add_argument('--prioriterations', default='10', help='the number of iterations for the prior build, if step 3 is run (default: 10)')
+    parser.add_argument('--presence', default='1e-6', help='the SAVI presence posterior (default: 1e-6). Where it\'s used: step 4')
+    parser.add_argument('--conf', default='1e-5', help='the SAVI conf (default: 1e-5). Where it\'s used: step 4')
+    parser.add_argument('--precision', type=int, default=0, help='the SAVI precision (default: 0). Where it\'s used: step 4')
+    parser.add_argument('--noindeldepth', action='store_true', help='do not include include indel reads in total depth count (SDP) (default: off) (note: asteriks in mpileup are included irrespective of this flag). Where it\'s used: step 2')
+    parser.add_argument('--rdplusad', action='store_true', help='use reference-agreeing reads plus alternate-calling reads (RD+AD) rather than total depth (SDP) as input to savi (default: off). Where it\'s used: step 2')
+    parser.add_argument('--index', default='0', help='an index used in naming of output files (default: 0)')
+    parser.add_argument('--rnabams', help='comma-delimited list of rna bam files against which to cross-check your variants (.bai indices should be present)')
+    parser.add_argument('--vcf', help='(for running step 5 as a stand-alone only) vcf to use as input')
+    parser.add_argument('--noncoding', action='store_true', help='use snpEff to find all transcripts, not just only protein transcripts (default: off). Where it\'s used: step 5')
+    parser.add_argument('--noclean', action='store_true', help='do not delete temporary intermediate files (default: off)')
+    parser.add_argument('--noerror', action='store_true', help='do not check for errors (default: off)')
+    parser.add_argument('--verbose','-v', action='store_true', help='echo commands (default: off)')
+    parser.add_argument('--superverbose', action='store_true', help='print output of the programs called in each step (default: off)')
 
     args = parser.parse_args()
 
@@ -102,27 +102,27 @@ def get_arg():
     # get the number of samples
     numsamp = 0
     if args.bams:
-        numsamp = len(args.bams.split(",")) 
+        numsamp = len(args.bams.split(','))
 
     # if user passes scripts dir, change paths of priors (default and build)
     if args.scripts:
         # change default if user didn't supply his own input
-        if args.buildprior == software + "/bin/prior_unif01":
-            args.buildprior = args.scripts + "/bin/prior_unif01"
-        if args.prior == software + "/bin/prior_diploid01":
-            args.prior = args.scripts + "/bin/prior_diploid01"
+        if args.buildprior == software + '/bin/prior_unif01':
+            args.buildprior = args.scripts + '/bin/prior_unif01'
+        if args.prior == software + '/bin/prior_diploid01':
+            args.prior = args.scripts + '/bin/prior_diploid01'
 
     # add key-value pairs to the args dict
     vars(args)['numsamp'] = numsamp 
     vars(args)['cwd'] = cwdir
-    vars(args)['bin'] = args.scripts + "/bin" 
+    vars(args)['bin'] = args.scripts + '/bin'
     # if user didn't define compsamp, set it
     if not args.compsamp: vars(args)['compsamp'] = generate_compsamp(numsamp)
     # generate default prior string if user not running step3
-    if not "3" in args.steps:
+    if not '3' in args.steps:
         vars(args)['priorstring'] = generate_priorstr(args.compsamp, args.prior)
     # define a directory for reports
-    vars(args)['reportdir'] = args.outputdir + "/report"
+    vars(args)['reportdir'] = args.outputdir + '/report'
 
     # print args
     print(args)
@@ -133,55 +133,56 @@ def get_arg():
 # -------------------------------------
 
 def check_error(args, parser):
-    """Check for errors, check dependencies """
+    """Check for errors, check dependencies"""
 
     # if no args, print help
-    if ( not len(sys.argv) > 1 ):
+    if not len(sys.argv) > 1:
         parser.print_help()
         sys.exit(0)
 
+    # check for existence of output dir
+    check_dirpath(args.outputdir)
+
     # unpaired?
-    if (args.numsamp == 1):
-        print("[ALERT] running savi with an unpaired sample - this is not optimal")
+    if args.numsamp == 1:
+        print('[ALERT] running savi with an unpaired sample - this is not optimal')
 
     # check step string only goes from 1 to 5 and is all digits 
     if not args.steps.isdigit():
-        print("[ERROR] invalid step string")
+        print('[ERROR] invalid step string')
         sys.exit(1)
     if set(list(args.steps)).intersection(set(list('67890'))):
-        print("[ERROR] invalid step string (only steps 1 thro 5 exist)")
+        print('[ERROR] invalid step string (only steps 1 thro 5 exist)')
         sys.exit(1)
 
     # define required programs
-    # required_programs = ("java", "python", "samtools", "snpEff.jar", "SnpSift.jar", "bgzip", "tabix", "vcffilter", "bcftools")
-    required_programs = ("java", "python", "samtools", "snpEff.jar", "SnpSift.jar", "bgzip", "tabix", "vcffilter")
-    required_savi_programs = ("pileup2multiallele_vcf", "add_to_info", "make_qvt", "savi_poster", "savi_conf", "savi_comp", "savi_poster_accum", "savi_poster_merge", "savi_poster_prt", "savi_unif_prior", "savi_txt2prior")
+    required_programs = ('java', 'python', 'samtools', 'snpEff.jar', 'SnpSift.jar', 'bgzip', 'tabix', 'vcffilter')
+    required_savi_programs = ('pileup2multiallele_vcf', 'add_to_info', 'make_qvt', 'savi_poster', 'savi_conf', 'savi_comp', 'savi_poster_accum', 'savi_poster_merge', 'savi_poster_prt', 'savi_unif_prior', 'savi_txt2prior')
 
     # check for required programs 
     for j in required_savi_programs:
-        check_path(args.bin + "/" + j)
+        check_path(args.bin + '/' + j)
 
     for j in required_programs:
         if (not spawn.find_executable(j)):
-            print("[ERROR] Can't find " + j + ". Please add it to your PATH")
+            print('[ERROR] Can\'t find ' + j + '. Please add it to your PATH')
             sys.exit(1)
 
     # check for correct versions 
-    # (may need to add bcftools back in here)
     effpath = spawn.find_executable('snpEff.jar')
-    for myprogram, version, mycmd in zip(["samtools", "SnpEff"], ["1.2", "4.1"], ["samtools --version", "java -Xmx1G -jar " + effpath + " -version"]):
+    for myprogram, version, mycmd in zip(['samtools', 'SnpEff'], ['1.2', '4.1'], ['samtools --version', 'java -Xmx1G -jar ' + effpath + ' -version']):
         myout = run_cmd(mycmd, 0, 1)
         # print(myout)
-        if "insufficient memory" in myout:
-            print("[ERROR] insufficient memory for java")
+        if 'insufficient memory' in myout:
+            print('[ERROR] insufficient memory for java')
             sys.exit(1)
-        elif not version in myout.split("\n")[0]:
-            print("[ERROR] Must use " + myprogram + " verion: " + version)
+        elif not version in myout.split('\n')[0]:
+            print('[ERROR] Must use ' + myprogram + ' verion: ' + version)
             sys.exit(1)
 
     # check for existence of bam files
     if args.bams:
-        for j in args.bams.split(","):
+        for j in args.bams.split(','):
             check_path(j)
             check_path(j + '.bai')
 
@@ -192,22 +193,22 @@ def check_error(args, parser):
 
     # check for existence of annotating vcf
     if args.annvcf:
-        for i in args.annvcf.split(","):
+        for i in args.annvcf.split(','):
             check_path(i)
 
     # if Step1 called, but no bam files or ref supplied, throw error
     if '1' in args.steps and ((not args.bams) or (not args.ref)):
-        print("[ERROR] Need to supply .bam files and reference file for Step 1")
+        print('[ERROR] Need to supply .bam files and reference file for Step 1')
         sys.exit(1)
 
     # check that region is in ref
     if args.region:
-        with open(args.ref + '.fai', "r") as f:
+        with open(args.ref + '.fai', 'r') as f:
             contents = f.read()
             # the region supplied by the user should be in the first column of the ref.fa.fai file
             # region can look like this, e.g., chr1:120000-130000 (just check the part before the colon)
-            if not (args.region.split(":")[0] in [x.split()[0] for x in contents.split("\n") if x]):
-                print("[ERROR] Region " + args.region.split(":")[0] + " not in " + args.ref + ".fai")
+            if not (args.region.split(':')[0] in [x.split()[0] for x in contents.split('\n') if x]):
+                print('[ERROR] Region ' + args.region.split(':')[0] + ' not in ' + args.ref + '.fai')
                 sys.exit(1)
             
 # -------------------------------------
@@ -217,7 +218,17 @@ def check_path(myfile):
 
     # expanduser handle tilde
     if (not os.path.isfile(os.path.expanduser(myfile))):
-        print("[ERROR] Can't find the file " + myfile)
+        print('[ERROR] Can\'t find the file ' + myfile)
+        sys.exit(1)
+
+# -------------------------------------
+
+def check_dirpath(myfile):
+    """Check for the existence of a directory"""
+
+    # expanduser handle tilde
+    if (not os.path.isdir(os.path.expanduser(myfile))):
+        print('[ERROR] Can\'t find the folder ' + myfile)
         sys.exit(1)
 
 # -------------------------------------
@@ -226,10 +237,10 @@ def generate_compsamp(numsamp):
     """Generate sample comparison string, which determines which samples are compared to which"""
 
     # by default, everything is compared to sample 1, which is assumed to be 'normal' (i.e., not tumor)
-    if (numsamp == 1):
+    if numsamp == 1:
         return '1'
-    elif (numsamp > 1):
-        return ",".join(["%s:1" % k for k in range(2,numsamp+1)]) 
+    elif numsamp > 1:
+        return ','.join(['%s:1' % k for k in range(2,numsamp+1)])
     else:
         return ''
 
@@ -246,12 +257,12 @@ def generate_priorstr(compsamp, priorpath):
     """Generate prior string for run_savi.py"""
 
     # if run step3, create prior string for priors specified in compsamp
-    # if compsamp="2:1", it should look like this - 1:${outputdir}/savi/prior1/prior,2:${outputdir}/savi/prior2/prior
+    # if compsamp='2:1', it should look like this - 1:${outputdir}/savi/prior1/prior,2:${outputdir}/savi/prior2/prior
     # if not step3, use diploid prior by default
     if not compsamp:
-        return "1:" + priorpath
+        return '1:' + priorpath
     else:
-        return ",".join(["%s:%s" % (k, priorpath) for k in get_uniq_samples(compsamp)])
+        return ','.join(['%s:%s' % (k, priorpath) for k in get_uniq_samples(compsamp)])
 
 # -------------------------------------
 
@@ -260,7 +271,8 @@ def run_cmd(cmd, bool_verbose, bool_getstdout):
 
     # if verbose, print command
     if (bool_verbose):
-        print("[command] " + cmd)
+        print('[command] ' + cmd)
+        sys.stdout.flush()
 
     proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     proc.wait() 
@@ -273,34 +285,35 @@ def run_cmd(cmd, bool_verbose, bool_getstdout):
 
     # if error, print it
     if stderr:
-        print("[stderror] " + stderr),
+        print('[stderror] ' + stderr),
 
     # return stdout
     if (bool_getstdout): 
         return stdout.rstrip()
     else:
-        return "0" # note: this must return a str
+        # note: this must return a str
+        return '0'
 
 # -------------------------------------
 
 def run_cmd_python_pipe(cmd, bool_verbose, filter_function=None, output_file=None):
-    """Run a system (i.e., shell) command and filter it with python as if we "piped" it into python"""
+    """Run a system (i.e., shell) command and filter it with python as if we piped it into python"""
 
     # if verbose, print command
     if (bool_verbose):
-        print("[command] " + cmd)
+        print('[command] ' + cmd)
 
     proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     # http://stackoverflow.com/questions/2804543/read-subprocess-stdout-line-by-line
 
-    with open(output_file, "w") as f:
+    with open(output_file, 'w') as f:
         while True:
             line = proc.stdout.readline()
             if line:
                 myline = filter_function(line.rstrip())
                 if myline:
-                    f.write(myline + "\n")
+                    f.write(myline + '\n')
             else:
                 break
 
@@ -310,14 +323,13 @@ def check_file_exists_and_nonzero(myfile):
     """Check for the existence and nonzero-ness of a file"""
 
     # loop through comma-delimited list of files
-    for i in myfile.split(","):
-        # if (os.path.isfile(i)):
-        if (os.path.isfile(os.path.expanduser(i))):
-            if (os.path.getsize(os.path.expanduser(i)) == 0):
-                print(i + " is empty. Exiting")
+    for i in myfile.split(','):
+        if os.path.isfile(os.path.expanduser(i)):
+            if os.path.getsize(os.path.expanduser(i)) == 0:
+                print(i + ' is empty. Exiting')
                 sys.exit(1)
         else:
-            print("Can't find " + i + ". Exiting.")
+            print('Can\'t find ' + i + '. Exiting.')
             sys.exit(1)
 
 # -------------------------------------
@@ -354,7 +366,7 @@ class Cleaner():
         """Clean up tmp and intermediate files"""
 
         if bool_verbose:
-            print("[clean-up] Remove files: "),
+            print('[clean-up] Remove files: '),
             print(self.junk)
 
         # rm -f
@@ -400,9 +412,11 @@ class Step(object):
         """The run method, meant to be overridden by the children"""
 
         # extra carriage return first for all steps other than 1
-        if self.args.verbose and self.step_index != "1": print
+        if self.args.verbose and self.step_index != '1':
+            print
+
         # print step and description
-        print('[STEP ' + self.step_index + '] ' + self.description)
+        print(('[STEP {self.step_index}] {self.description}').format(self=self))
 
 # -------------------------------------
 
@@ -416,11 +430,11 @@ class Step1(Step):
         Step.__init__(self, args, step_index)
 
         # define description as well as input and output attributes
-        self.set_descrip("Convert bams to mpileup and, if not building custom prior, filter for variants only")
+        self.set_descrip('Convert bams to mpileup and, if not building custom prior, filter for variants only')
         self.set_input(self.args.bams)
-        self.set_output(self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt")
+        self.set_output(('{self.args.outputdir}/tmp_mpile.{self.args.index}.txt').format(self=self))
         # for rna bams:
-        self.output2 = self.args.outputdir + "/" + "tmp_mpile." + str(int(self.args.index) + 1) + ".txt"
+        self.output2 = self.args.outputdir + '/' + 'tmp_mpile.' + str(int(self.args.index) + 1) + '.txt'
 
     def filter_pileup(self, myline):
         """Filter line of pileup"""
@@ -435,29 +449,26 @@ class Step1(Step):
         minad = int(self.args.minad)
 
         # if sample 1 (normal) doesn't meet cutoff, break
-        if (int(myline.split()[3]) < cutoff):
+        if int(myline.split()[3]) < cutoff:
             return None
 
         # if only one sample, print
-        if (num == 1):
+        if num == 1:
             # print(myline)
             return myline
         # if multiple samples
         else:
             # loop thro samples, discounting the normal sample (sample 1)
             for i in range(1,num):
-
                 # only consider if sample depth greater than or eq to cutoff
                 if int(myline.split()[3+i*3]) >= cutoff:
-
                     # if make prior step, generate all positions in the mpileup, variants and non-variants alike
-                    if "3" in self.args.steps:
+                    if '3' in self.args.steps:
                         return myline
                         break
                     else:    
                         # get read string
                         readstr = myline.split()[4+i*3]
-                
                         # count ACTGN mismatches
                         # if sufficient number of mismatches, flag line to print
                         # but eliminate read starts with qual scores ACTG (e.g., stuff like ^A ^C etc)
@@ -477,9 +488,9 @@ class Step1(Step):
         super(Step1, self).run()
 
         # define pileup file
-        # note the -d flag: "max per-BAM depth to avoid excessive memory usage [250]." 
+        # note the -d flag: 'max per-BAM depth to avoid excessive memory usage [250].'
         # The default of 250 is way too low, so we jack it up
-        pileupflag="-A -B -q {} -d {} -L {} -f {}".format(self.args.mapqual, self.args.maxdepth, self.args.maxdepth, self.args.ref)
+        pileupflag='-A -B -q {} -d {} -L {} -f {}'.format(self.args.mapqual, self.args.maxdepth, self.args.maxdepth, self.args.ref)
 
         # define command to run
 
@@ -528,7 +539,7 @@ class Step1(Step):
         }'"""
 
         # if make prior step, modify awk command to generate all positions in the mpileup, variants and non-variants alike
-        if "3" in self.args.steps:
+        if '3' in self.args.steps:
             awkcmd = "awk -v num=" + str(self.args.numsamp) + " -v cutoff=" + str(self.args.mindepth) + """ '{
                 true=0; 
                 for (i = 1; i <= num-1; i++) 
@@ -546,16 +557,16 @@ class Step1(Step):
             }'"""
 
         # define region flag
-        regionflag = ""
+        regionflag = ''
         if self.args.region:
-            regionflag="-r " + self.args.region 
+            regionflag='-r ' + self.args.region
 
         # too slow :( revert to awk
-        #mycmd = "samtools mpileup {} {} {}".format(pileupflag, regionflag, self.args.bams.replace(',', ' '))
+        #mycmd = 'samtools mpileup {} {} {}'.format(pileupflag, regionflag, self.args.bams.replace(',', ' '))
         #run_cmd_python_pipe(mycmd, self.args.verbose, filter_function=self.filter_pileup, output_file=self.output)
 
         # command: samtools plus awk
-        mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, regionflag, self.args.bams.replace(',', ' '), awkcmd, self.output)
+        mycmd = 'samtools mpileup {} {} {} | {} > {}'.format(pileupflag, regionflag, self.args.bams.replace(',', ' '), awkcmd, self.output)
         # run it
         run_cmd(mycmd, self.args.verbose, 1)
 
@@ -599,7 +610,7 @@ class Step1(Step):
                 }
             }'"""
 
-            mycmd = "samtools mpileup {} {} {} | {} > {}".format(pileupflag, regionflag, self.args.rnabams.replace(',', ' '), awkcmd, self.output2)
+            mycmd = 'samtools mpileup {} {} {} | {} > {}'.format(pileupflag, regionflag, self.args.rnabams.replace(',', ' '), awkcmd, self.output2)
             run_cmd(mycmd, self.args.verbose, 1)
             self.intermediates.append(self.output2)
 
@@ -615,12 +626,12 @@ class Step2(Step):
         Step.__init__(self, args, step_index)
 
         # define description as well as input and output attributes
-        self.set_descrip("Convert mpileup to vcf")
-        self.set_input(self.args.outputdir + "/" + "tmp_mpile." + self.args.index + ".txt")
-        self.set_output(self.args.outputdir + "/" + self.args.index + ".vcf.bgz")
+        self.set_descrip('Convert mpileup to vcf')
+        self.set_input(self.args.outputdir + '/' + 'tmp_mpile.' + self.args.index + '.txt')
+        self.set_output(self.args.outputdir + '/' + self.args.index + '.vcf.bgz')
         # for rna bams:
-        self.input2 = self.args.outputdir + "/" + "tmp_mpile." + str(int(self.args.index) + 1) + ".txt"
-        self.output2 = self.args.outputdir + "/" + str(int(self.args.index) + 1) + ".vcf"
+        self.input2 = self.args.outputdir + '/' + 'tmp_mpile.' + str(int(self.args.index) + 1) + '.txt'
+        self.output2 = self.args.outputdir + '/' + str(int(self.args.index) + 1) + '.vcf'
 
     # override parent's run method
     @mytimer
@@ -929,7 +940,7 @@ class Step5(Step):
         if (self.args.verbose): print("[comment] filter Ns from " + report_in + ", produce: " + report_out)
 
         # make sure neither ref nor alt column has an 'N'
-        with open(report_out, "w") as g:
+        with open(report_out, 'w') as g:
             with open(report_in, 'r') as f:
                 for line in f:
                     if (line.startswith("#") or ((not 'N' in line.split()[3]) and (not 'N' in line.split()[4]))):
