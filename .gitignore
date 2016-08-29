@@ -13,4 +13,5 @@ bin/savi_prior_build
 bin/savi_prior_build_2
 bin/savi_txt2prior
 bin/savi_unif_prior
+bin/filter_pileup
 notes

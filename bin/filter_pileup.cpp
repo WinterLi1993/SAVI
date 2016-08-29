@@ -34,6 +34,8 @@ int mindepth = 10;
 int minaltdepth = 2;
 // require the first sample (assumed to be normal) to have min read depth 
 bool normaldepth = false;
+// print variant and non-variant lines alike 
+bool buildprior = false;
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
@@ -129,7 +131,7 @@ int parseRead(const std::string &s)
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 // filter pileup file
-void filterpileup() 
+void filterpileup()
 {    
 	// line
 	std::string line;
@@ -146,6 +148,7 @@ void filterpileup()
 		char delim = '	';
 
 		x = split(line, delim);
+		// loop thro samples
 		for (int i = 0; i < x.size(); i++)	
 		{	
 			// ignore first three columns: chr pos depth
@@ -156,15 +159,12 @@ void filterpileup()
 				if (atoi(x[i].c_str()) >= mindepth)
 				{
 					is_gt_mindepth = true;
-				}
-			}
-			// read field
-			else if (i > 2 && i % 3 == 1)
-			{
-				// if any sample meets min alt depth requirements, turn this to true
-				if (parseRead(x[i]) >= minaltdepth)
-				{
-					is_gt_minaltdepth = true;
+					// read field
+					// if any sample meets min alt depth requirements, turn this to true
+					if (parseRead(x[i+1]) >= minaltdepth)
+					{
+						is_gt_minaltdepth = true;
+					}
 				}
 			}
 			/*
@@ -190,10 +190,133 @@ void filterpileup()
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+// filter pileup file with code identical to old awk
+void filterpileup2()
+{    
+	// line
+	std::string line;
+
+	while (std::getline(std::cin, line))
+	{
+		// at least one sample has min depth bool
+		bool is_gt_mindepth = false;
+		// at least one sample has min alt depth bool
+		bool is_gt_minaltdepth = false;
+		// vector of fields comprising the line
+		vector<string> x;
+		// character to split line on: tab
+		char delim = '	';
+
+		x = split(line, delim);
+
+		// if at least 2 samples, skip the first one (assumed to be normal)
+		if (x.size() > 6)
+		{
+			for (int i = 6; i < x.size(); i++)	
+			{	
+				// ignore first three columns: chr pos depth
+				// depth field
+				if (i % 3 == 0)
+				{
+					// if any sample meets min depth requirements, turn this to true
+					if (atoi(x[i].c_str()) >= mindepth)
+					{
+						is_gt_mindepth = true;
+						// read field
+						// if any sample meets min alt depth requirements, turn this to true
+						if (parseRead(x[i+1]) >= minaltdepth)
+						{
+							is_gt_minaltdepth = true;
+						}
+					}
+				}
+				/*
+				cout << x[i] << endl;
+				cout << "is min depth(";
+				cout << mindepth;
+				cout << "): ";
+				cout << is_gt_mindepth << endl;
+				cout << "is min alt depth(";
+				cout << minaltdepth;
+				cout << "): ";
+				cout << is_gt_minaltdepth << endl;
+				*/
+			}
+			// print line if first sample (normal) has min depth AND it satisfies requirements of mindepth and min alt depth
+			if (atoi(x[3].c_str()) >= mindepth && is_gt_mindepth && is_gt_minaltdepth)
+			{
+				std::cout << line << std::endl;
+			}
+		}
+		else
+		{
+            		// if only one sample, print if depth >= cutoff
+			if (atoi(x[3].c_str()) >= mindepth)
+			{
+				std::cout << line << std::endl;
+			}
+		}
+	}
+}    
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+// filter pileup file for building prior (keep variants and non-variants alike)
+void filterpileup3()
+{    
+	// line
+	std::string line;
+
+	while (std::getline(std::cin, line))
+	{
+		// at least one sample has min depth bool
+		bool is_gt_mindepth = false;
+		// vector of fields comprising the line
+		vector<string> x;
+		// character to split line on: tab
+		char delim = '	';
+
+		x = split(line, delim);
+
+		// if at least 2 samples, skip the first one (assumed to be normal)
+		if (x.size() > 6)
+		{
+			for (int i = 6; i < x.size(); i++)	
+			{	
+				// ignore first three columns: chr pos depth
+				// depth field
+				if (i % 3 == 0)
+				{
+					// if any sample meets min depth requirements, turn this to true
+					if (atoi(x[i].c_str()) >= mindepth)
+					{
+						is_gt_mindepth = true;
+					}
+				}
+			}
+			// print line if first sample (normal) has min depth AND it satisfies requirements of mindepth and min alt depth
+			if (atoi(x[3].c_str()) >= mindepth && is_gt_mindepth)
+			{
+				std::cout << line << std::endl;
+			}
+		}
+		else
+		{
+            		// if only one sample, print if depth >= cutoff
+			if (atoi(x[3].c_str()) >= mindepth)
+			{
+				std::cout << line << std::endl;
+			}
+		}
+	}
+}    
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
 // parse arguments
 void argparse(int argc, char **argv) 
 {    
-	string myhelp = "Filter mpileup file based on coverage depths and number of variants\n\nFlags:\n -h,--help: help\n -m,--mindepth [INT]: if at least one sample satisfies min read depth, print line (default: 10)\n -a,--minaltdepth [INT]: if at least one sample satisfies min alt read depth (default: 2)\n -n,--normaldepth: require the first sample (assumed to be normal) to have min read depth (default: off)\n\nUsage:\n To use, simply pipe your pileup file into this program. E.g.,\n cat mpileup.txt | filter_pileup";
+	string myhelp = "Filter mpileup file based on coverage depths and number of variants\n\nFlags:\n -h,--help: help\n -m,--mindepth [INT]: if at least one sample satisfies min read depth, print line (default: 10)\n -a,--minaltdepth [INT]: if at least one sample satisfies min alt read depth (default: 2)\n -n,--normaldepth: require the first sample (assumed to be normal) to have min read depth (default: off)\n -b,--buildprior: filter for depth only, keeping variants and non-variants alike\n\nUsage:\n To use, simply pipe your pileup file into this program. E.g.,\n cat mpileup.txt | filter_pileup";
 
 	/*
 	if (argc == 1)
@@ -229,6 +352,11 @@ void argparse(int argc, char **argv)
 			normaldepth = true;
 			i=i+1;
 		}
+		else if (strcmp(argv[i],"-b") == 0 || strcmp(argv[i],"--buildprior") == 0)
+		{
+			buildprior = true;
+			i=i+1;
+		}
 		else
 		{
 			i++;
@@ -236,7 +364,19 @@ void argparse(int argc, char **argv)
 	}
 
 	// filter pileup file
-	filterpileup();
+	if (buildprior)
+	{
+		filterpileup3();
+	}
+	else if (normaldepth)
+	{
+		// use code identical to old code
+		filterpileup2();
+	}
+	else
+	{
+		filterpileup();
+	}
 }
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
