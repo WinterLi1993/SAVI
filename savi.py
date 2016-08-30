@@ -157,7 +157,7 @@ def check_error(args, parser):
 
     # define required programs
     required_programs = ('java', 'python', 'samtools', 'snpEff.jar', 'SnpSift.jar', 'bgzip', 'tabix', 'vcffilter')
-    required_savi_programs = ('pileup2multiallele_vcf', 'add_to_info', 'make_qvt', 'savi_poster', 'savi_conf', 'savi_comp', 'savi_poster_accum', 'savi_poster_merge', 'savi_poster_prt', 'savi_unif_prior', 'savi_txt2prior')
+    required_savi_programs = ('pileup2multiallele_vcf', 'add_to_info', 'make_qvt', 'savi_poster', 'savi_conf', 'savi_comp', 'savi_poster_accum', 'savi_poster_merge', 'savi_poster_prt', 'savi_unif_prior', 'savi_txt2prior', 'filter_pileup')
 
     # check for required programs 
     for j in required_savi_programs:
@@ -347,6 +347,50 @@ def mytimer(myfunc):
 
 # -------------------------------------
 
+# not used
+def filter_pileup(args, myline):
+    """Filter line of pileup"""
+    # reduce pileup by only printing variants and only printing lines with enough depth
+
+    # number of samples
+    num = int(args.numsamp)
+    # tot read cutoff
+    cutoff = int(args.mindepth)
+    # alt read depth
+    minad = int(args.minad)
+
+    # if sample 1 (normal) doesn't meet cutoff, break
+    if int(myline.split()[3]) < cutoff:
+        return None
+
+    # if only one sample, print
+    if num == 1:
+        # print(myline)
+        return myline
+    # if multiple samples
+    else:
+        # loop thro samples, discounting the normal sample (sample 1)
+        for i in range(1,num):
+            # only consider if sample depth greater than or eq to cutoff
+            if int(myline.split()[3+i*3]) >= cutoff:
+                # if make prior step, generate all positions in the mpileup, variants and non-variants alike
+                if '3' in args.steps:
+                    return myline
+                    break
+                else:
+                    # get read string
+                    readstr = myline.split()[4+i*3]
+                    # count ACTGN mismatches
+                    # if sufficient number of mismatches, flag line to print
+                    # but eliminate read starts with qual scores ACTG (e.g., stuff like ^A ^C etc)
+                    if len(re.findall(r'[AaGgCcTtNn]', re.sub(r'\^[ACTGNactgn\+\-]', '', readstr))) >= minad:
+                        return myline
+                        break
+
+    return None
+
+# -------------------------------------
+
 class Cleaner():
     """A class whose object keeps a set of files to delete from the Steps"""
 
@@ -434,50 +478,7 @@ class Step1(Step):
         self.set_input(self.args.bams)
         self.set_output(('{self.args.outputdir}/tmp_mpile.{self.args.index}.txt').format(self=self))
         # for rna bams:
-        self.output2 = self.args.outputdir + '/' + 'tmp_mpile.' + str(int(self.args.index) + 1) + '.txt'
-
-    def filter_pileup(self, myline):
-        """Filter line of pileup"""
-
-        # idea: reduce pileup by only printing variants and only printing lines with enough depth
-
-        # number of samples
-        num = int(self.args.numsamp)
-        # tot read cutoff
-        cutoff = int(self.args.mindepth)
-        # alt read depth
-        minad = int(self.args.minad)
-
-        # if sample 1 (normal) doesn't meet cutoff, break
-        if int(myline.split()[3]) < cutoff:
-            return None
-
-        # if only one sample, print
-        if num == 1:
-            # print(myline)
-            return myline
-        # if multiple samples
-        else:
-            # loop thro samples, discounting the normal sample (sample 1)
-            for i in range(1,num):
-                # only consider if sample depth greater than or eq to cutoff
-                if int(myline.split()[3+i*3]) >= cutoff:
-                    # if make prior step, generate all positions in the mpileup, variants and non-variants alike
-                    if '3' in self.args.steps:
-                        return myline
-                        break
-                    else:    
-                        # get read string
-                        readstr = myline.split()[4+i*3]
-                        # count ACTGN mismatches
-                        # if sufficient number of mismatches, flag line to print
-                        # but eliminate read starts with qual scores ACTG (e.g., stuff like ^A ^C etc)
-                        if len(re.findall(r'[AaGgCcTtNn]', re.sub(r'\^[ACTGNactgn\+\-]', '', readstr))) >= minad:
-                            # print(myline)
-                            return myline
-                            break
-
-        return None
+        self.output2 = '{self.args.outputdir}/tmp_mpile.{suffix}.txt'.format(self=self, suffix=int(self.args.index) + 1)
 
     # override parent's run method, decorate with mytimer to benchmark time
     @mytimer
@@ -489,84 +490,28 @@ class Step1(Step):
 
         # define pileup file
         # note the -d flag: 'max per-BAM depth to avoid excessive memory usage [250].'
-        # The default of 250 is way too low, so we jack it up
-        pileupflag='-A -B -q {} -d {} -L {} -f {}'.format(self.args.mapqual, self.args.maxdepth, self.args.maxdepth, self.args.ref)
+        # The default of 250 is too low, so we jack it up
+        pileupflag='-A -B -q {self.args.mapqual} -d {self.args.maxdepth} -L {self.args.maxdepth} -f {self.args.ref}'.format(self=self)
 
         # define command to run
 
-        # **TO DO**: port this awk to Python, add unittests
-
-        # first a line of awk: we want only lines where normal has depth > cutoff
+        # filer pileup such that: normal has depth > cutoff
         # and at least one of the tumor samples has depth > cutoff
         # and we want only variants
-        # (this awk is implemented in Python in the function filter_pileup above, but can't figure out how to make it run fast)
-        awkcmd = "awk -v num=" + str(self.args.numsamp) + " -v cutoff=" + str(self.args.mindepth) + " -v minad=" + str(self.args.minad) + """ '{
-            # reduce pileup by only printing variants
+        # (this implemented in Python in the function filter_pileup above, but can't figure out how to make it run fast so use small binary)
+        filtercmd = '{self.args.bin}/filter_pileup --minaltdepth {self.args.minad} --mindepth {self.args.mindepth} --normaldepth'.format(self=self)
 
-            myflag=0; # flag to print line
-
-            # loop thro samples
-            for (i = 1; i <= num-1; i++) 
-            {
-                # only consider if sample depth greater than or eq to cutoff
-                if ($(4+i*3) >= cutoff) 
-                {
-                    # get read string
-                    mystr=$(5+i*3); 
-                    # eliminate read starts with qual scores ACTG (e.g., stuff like ^A ^C etc)
-                    gsub(/\^[ACTGNactgn+-]/,"",mystr); 
-                    # count ACTGN mismatches
-                    altdepth = gsub(/[ACTGNactgn]/,"",mystr); 
-                    # if sufficient number of mismatches, flag line to print
-                    if (altdepth >= minad) 
-                    {
-                        myflag=1; break;
-                    }
-                }
-            }
-
-            # if only one sample, print if depth >= cutoff
-            if (num==1 && $4 >= cutoff) 
-            {
-                print;
-            }
-
-            # if multiple samples, print if sample one has depth AND myflag
-            else if (num>1 && $4 >= cutoff && myflag) 
-            {
-                print;
-            }
-        }'"""
-
-        # if make prior step, modify awk command to generate all positions in the mpileup, variants and non-variants alike
+        # if make prior step, filter to generate all positions in the mpileup, variants and non-variants alike
         if '3' in self.args.steps:
-            awkcmd = "awk -v num=" + str(self.args.numsamp) + " -v cutoff=" + str(self.args.mindepth) + """ '{
-                true=0; 
-                for (i = 1; i <= num-1; i++) 
-                {
-                    if ($(4+i*3) >= cutoff) {true=1}
-                }; 
-                if (num==1 && $4 >= cutoff) 
-                {
-                    print;
-                }
-                else if (num>1 && $4 >= cutoff && true)
-                {
-                    print;
-                }
-            }'"""
+            filtercmd = '{self.args.bin}/filter_pileup --mindepth {self.args.mindepth} --buildprior'.format(self=self)
 
         # define region flag
         regionflag = ''
         if self.args.region:
             regionflag='-r ' + self.args.region
 
-        # too slow :( revert to awk
-        #mycmd = 'samtools mpileup {} {} {}'.format(pileupflag, regionflag, self.args.bams.replace(',', ' '))
-        #run_cmd_python_pipe(mycmd, self.args.verbose, filter_function=self.filter_pileup, output_file=self.output)
-
-        # command: samtools plus awk
-        mycmd = 'samtools mpileup {} {} {} | {} > {}'.format(pileupflag, regionflag, self.args.bams.replace(',', ' '), awkcmd, self.output)
+        # command: samtools plus filter pileup by only printing variants and only printing lines with enough depth
+        mycmd = 'samtools mpileup {} {} {} | {} > {}'.format(pileupflag, regionflag, self.args.bams.replace(',', ' '), filtercmd, self.output)
         # run it
         run_cmd(mycmd, self.args.verbose, 1)
 
@@ -576,41 +521,11 @@ class Step1(Step):
         # the output of this step is needed for the next step, but ultimately we want to delete it
         self.intermediates.append(self.output)
 
-        # small violation of DRY: repeat with modifications for RNA
+        # repeat with slightly different filtercmd for RNA
         if self.args.rnabams:
-            # define awkcmd
-            awkcmd = "awk -v num=" + str(len(self.args.rnabams.split(","))) + " -v cutoff=" + str(self.args.mindepth) + " -v minad=" + str(self.args.minad) + """ '{
-                # reduce pileup by only printing variants
-
-                myflag=0; # flag to print line
-
-                # loop thro samples
-                for (i = 0; i < num; i++)
-                {
-                    # only consider if sample depth greater than or eq to cutoff
-                    if ($(4+i*3) >= cutoff)
-                    {
-                        # get read string
-                        mystr=$(5+i*3);
-                        # eliminate read starts with qual scores ACTG (e.g., stuff like ^A ^C etc)
-                        gsub(/\^[ACTGNactgn+-]/,"",mystr);
-                        # count ACTGN mismatches
-                        altdepth = gsub(/[ACTGNactgn]/,"",mystr);
-                        # if sufficient number of mismatches, flag line to print
-                        if (altdepth >= minad)
-                        {
-                            myflag=1; break;
-                        }
-                    }
-                }
-
-                if (myflag)
-                {
-                    print;
-                }
-            }'"""
-
-            mycmd = 'samtools mpileup {} {} {} | {} > {}'.format(pileupflag, regionflag, self.args.rnabams.replace(',', ' '), awkcmd, self.output2)
+            # define filtercmd
+            filtercmd = '{self.args.bin}/filter_pileup --minaltdepth {self.args.minad} --mindepth {self.args.mindepth}'.format(self=self)
+            mycmd = 'samtools mpileup {} {} {} | {} > {}'.format(pileupflag, regionflag, self.args.rnabams.replace(',', ' '), filtercmd, self.output2)
             run_cmd(mycmd, self.args.verbose, 1)
             self.intermediates.append(self.output2)
 
